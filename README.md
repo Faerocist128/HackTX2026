@@ -1,4 +1,4 @@
 # HackTX2026
 Our project
 Dev Links:
-nessie java wrapper: https://github.com/nessieisreal/nessie-android-sdk
+nessie sdks: https://prod.nessieisreal.com/sdk

@@ -1,0 +1,3 @@
+dependencies {
+    compile 'com.reimaginebanking.api:nessie-android-sdk:1.0.4'
+}

@@ -39,12 +39,12 @@ export function PaymentComparison({ result, scenario }: { result: ScoreResult; s
       </div>
       <p className="hint mt-1">Keeping your current loan vs. the new loan you set up with the sliders.</p>
       <div className="mt-5 rounded-2xl overflow-x-auto" style={{ boxShadow: "inset 0 0 0 1.5px var(--line)" }}>
-        <table className="w-full text-left min-w-[420px]">
+        <table className="w-full text-left">
           <thead>
             <tr className="hint text-[14px]" style={{ background: "var(--chip)" }}>
-              <th className="py-3 px-4 font-semibold"><span className="sr-only">Measure</span></th>
-              <th className="py-3 px-4 font-semibold">Keep current loan</th>
-              <th className="py-3 px-4 font-semibold">Refinance</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold"><span className="sr-only">Measure</span></th>
+              <th className="py-3 px-3 sm:px-4 font-semibold">Keep current loan</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold">Refinance</th>
             </tr>
           </thead>
           <tbody>
@@ -73,9 +73,9 @@ export function PaymentComparison({ result, scenario }: { result: ScoreResult; s
 function Row({ label, now, next, tip, sub }: { label: string; now: string; next: string; tip?: string; sub?: string }) {
   return (
     <tr style={{ borderTop: "1px solid var(--line)" }}>
-      <th scope="row" className="py-4 px-4 font-semibold text-[15px]"><span className="inline-flex items-center gap-1">{label}{tip && <Tip text={tip} label={label} />}</span></th>
-      <td className="py-4 px-4 text-[18px] font-bold" style={{ color: "var(--ink2)" }}>{now}</td>
-      <td className="py-4 px-4 text-[22px] font-extrabold">{next}{sub && <span className="block hint font-semibold">{sub}</span>}</td>
+      <th scope="row" className="py-4 px-3 sm:px-4 font-semibold text-[15px]"><span className="inline-flex items-center gap-1">{label}{tip && <Tip text={tip} label={label} />}</span></th>
+      <td className="py-4 px-3 sm:px-4 text-[16px] sm:text-[18px] font-bold" style={{ color: "var(--ink2)" }}>{now}</td>
+      <td className="py-4 px-3 sm:px-4 text-[18px] sm:text-[22px] font-extrabold">{next}{sub && <span className="block hint font-semibold">{sub}</span>}</td>
     </tr>
   );
 }

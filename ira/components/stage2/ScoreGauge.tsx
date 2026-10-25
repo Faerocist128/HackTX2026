@@ -21,8 +21,22 @@ const SEGMENTS: { band: Band; from: number; to: number }[] = [
 const CONFETTI = ["#EB0A1E", "#137A3A", "#FFB547", "#1F5FD1", "#5BD68A"];
 
 /** One dial per scale. Compact mode fits two side by side in the sticky score panel. */
-export function ScoreGauge({ scale, score, band, verdict, preview, compact }: {
-  scale: ScaleKey; score: number; band: Band; verdict: Verdict; preview?: number | null; compact?: boolean;
+/** Band icon: drawn, one stroke weight, so meaning never rests on color alone. */
+function BandIcon({ band }: { band: Band }) {
+  const d = band === "green" ? "M4 8.5l2.8 2.8L12 5.5" : band === "yellow" ? "M8 4.5v4.5M8 11.5h.01" : "M4.5 8h7";
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
+}
+
+/**
+ * announce: own polite live region (off where the page announces both scores together).
+ * celebrate: confetti when refinance value turns green (off while a knockout applies).
+ */
+export function ScoreGauge({ scale, score, band, verdict, preview, compact, announce = true, celebrate = true }: {
+  scale: ScaleKey; score: number; band: Band; verdict: Verdict; preview?: number | null; compact?: boolean; announce?: boolean; celebrate?: boolean;
 }) {
   const [shown, setShown] = useState(score);
   const [pulse, setPulse] = useState(false);
@@ -53,14 +67,14 @@ export function ScoreGauge({ scale, score, band, verdict, preview, compact }: {
   useEffect(() => {
     if (mounted.current && prevBand.current !== band) {
       setPulse(true);
-      if (scale === "worth" && band === "green" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setConfetti(true);
+      if (celebrate && scale === "worth" && band === "green" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setConfetti(true);
       const t = setTimeout(() => { setPulse(false); setConfetti(false); }, 1300);
       prevBand.current = band;
       return () => clearTimeout(t);
     }
     prevBand.current = band;
     mounted.current = true;
-  }, [band, scale]);
+  }, [band, scale, celebrate]);
 
   const copy = BAND_COLORS[band];
   const meta = SCALE_COPY[scale];
@@ -80,12 +94,12 @@ export function ScoreGauge({ scale, score, band, verdict, preview, compact }: {
           {preview != null && preview > score && (
             <circle cx={pt(preview, R)[0]} cy={pt(preview, R)[1]} r="7" fill="var(--card)" stroke="var(--green)" strokeWidth="3" strokeDasharray="3 2" />
           )}
-          <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: `${CX}px ${CY}px`, transition: "transform 450ms cubic-bezier(.34,1.3,.64,1)" }}>
+          <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: `${CX}px ${CY}px`, transition: "transform 450ms cubic-bezier(.16,1,.3,1)" }}>
             <line x1={CX} y1={CY} x2={CX} y2={CY - R + 18} stroke="var(--ink)" strokeWidth="4" strokeLinecap="round" />
           </g>
           <circle cx={CX} cy={CY} r="9" fill="var(--ink)" />
-          <text x={pt(0, R)[0]} y={CY + 18} textAnchor="middle" fontSize="11" fill="var(--ink2)">1</text>
-          <text x={pt(100, R)[0]} y={CY + 18} textAnchor="middle" fontSize="11" fill="var(--ink2)">100</text>
+          {!compact && <text x={pt(0, R)[0]} y={CY + 18} textAnchor="middle" fontSize="11" fill="var(--ink2)">1</text>}
+          {!compact && <text x={pt(100, R)[0]} y={CY + 18} textAnchor="middle" fontSize="11" fill="var(--ink2)">100</text>}
         </svg>
         {confetti && (
           <div aria-hidden>
@@ -98,14 +112,14 @@ export function ScoreGauge({ scale, score, band, verdict, preview, compact }: {
       <div className="text-center -mt-2">
         <div className={`${compact ? "text-[44px]" : "text-[64px]"} font-extrabold leading-none`} style={{ color: copy.ink, transition: "color 400ms ease" }}>{Math.round(shown)}</div>
         <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold ${compact ? "text-[13px]" : ""}`} style={{ background: copy.soft, color: copy.ink }}>
-          <span aria-hidden>{band === "green" ? "✓" : band === "yellow" ? "!" : "→"}</span>
+          <BandIcon band={band} />
           {label}
         </div>
         {preview != null && preview > score && (
           <p className="mt-2 font-semibold text-[14px]" style={{ color: "var(--green)" }}>With your checked steps: {preview}</p>
         )}
       </div>
-      <p className="sr-only" aria-live="polite">{meta.title} {score} out of 100. {label}.</p>
+      {announce && <p className="sr-only" aria-live="polite">{meta.title} {score} out of 100. {label}.</p>}
     </section>
   );
 }

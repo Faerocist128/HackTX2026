@@ -7,6 +7,7 @@
   --ink: #15171c;
   --ink2: #4a4f59;
   --line: #e2e4e8;
+  --lineStrong: #80858f; /* control boundaries: ≥3:1 on card, bg and chip (WCAG 1.4.11) */
   --chip: #eef0f2;
   --brand: #eb0a1e; /* Toyota red: CTAs, slider fill, red band */
   --brandHover: #c8081a;
@@ -27,6 +28,7 @@
     --ink: #f3f4f6;
     --ink2: #b6bbc4;
     --line: #2d3038;
+    --lineStrong: #767b85;
     --chip: #24272e;
     --redInk: #ff6b76;
     --redSoft: #3a1418;
@@ -68,16 +70,16 @@ a:hover { color: var(--ink); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--brand); color: #fff; }
 .btn-primary:hover { background: var(--brandHover); color: #fff; }
-.btn-ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+.btn-ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--lineStrong); }
 .btn-ghost:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink2); }
 .btn-sm { min-height: 40px; padding: 0 16px; font-size: 15px; }
 
 .seg-group { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--chip); }
 .seg { flex: 1; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; background: transparent; color: var(--ink2); transition: background-color 180ms ease, box-shadow 180ms ease, color 180ms ease; }
-.seg[aria-pressed="true"], .seg[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.seg[aria-pressed="true"], .seg[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 0 0 1.5px var(--lineStrong); }
 
-.field { width: 100%; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
-.field:focus { border-color: var(--ink2); outline: none; }
+.field { width: 100%; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 1.5px solid var(--lineStrong); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
+.field:focus { border-color: var(--ink); }
 .label { font-weight: 700; font-size: 15px; }
 .hint { color: var(--ink2); font-size: 14px; }
 
@@ -86,6 +88,8 @@ a:hover { color: var(--ink); }
 .slider .track { position: absolute; left: 0; right: 0; top: 18px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
 .slider .done { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brand); border-radius: 4px; }
 .slider .band { position: absolute; top: 13px; height: 18px; border-radius: 9px; background: var(--greenSoft); box-shadow: inset 0 0 0 2px var(--green); }
+/* "Your loan today" tick on a track */
+.slider .mark { position: absolute; top: 10px; width: 3px; height: 24px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); z-index: 1; pointer-events: none; }
 input.range { -webkit-appearance: none; appearance: none; position: relative; z-index: 2; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; }
 input.range::-webkit-slider-runnable-track { height: 8px; background: transparent; }
 input.range::-moz-range-track { height: 8px; background: transparent; }
@@ -97,10 +101,10 @@ input.range:focus-visible { outline: none; }
 
 .tip { position: relative; display: inline-flex; }
 .tip button { width: 32px; height: 32px; margin: -6px -4px; border: 0; background: transparent; color: var(--ink2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 999px; }
-.tipbox { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translate(-50%, 4px); width: 260px; padding: 10px 14px; border-radius: 12px; background: var(--ink); color: var(--card); font-size: 15px; line-height: 1.4; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity 160ms ease, transform 160ms ease; z-index: 20; }
-.tip:hover .tipbox, .tip:focus-within .tipbox { opacity: 1; transform: translate(-50%, 0); }
+.tipbox { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: min(260px, calc(100vw - 24px)); padding: 10px 14px; border-radius: 12px; background: var(--ink); color: var(--card); font-size: 15px; line-height: 1.4; font-weight: 500; pointer-events: none; z-index: 20; animation: tip-in 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes tip-in { from { opacity: 0; transform: translate(-50%, 4px); } }
 
-.bar { transition: width 420ms cubic-bezier(0.34, 1.3, 0.64, 1); }
+.bar { transition: width 420ms cubic-bezier(0.16, 1, 0.3, 1); }
 .pulse { animation: pulse 620ms ease; }
 @keyframes pulse { 0% { transform: scale(1); } 35% { transform: scale(1.045); } 100% { transform: scale(1); } }
 .confetti { position: absolute; top: 44%; left: 50%; width: 9px; height: 14px; border-radius: 2px; animation: confetti 1150ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards; pointer-events: none; }

@@ -48,5 +48,5 @@ export function applyScenarioPatch(input: ScoreInput, patch: Partial<Scenario>):
   const rate = (sc: Scenario) =>
     estimateApr(profile.estCreditTier, ltvOf(sc), age, sc.termMonths, sc.channel, { market: input.market, loanType: sc.loanType }).apr;
   const shifted = s.targetApr + rate(next) - rate(s);
-  return { ...next, targetApr: Math.round(Math.max(2, Math.min(20, shifted)) * 10) / 10 };
+  return { ...next, targetApr: Math.round(Math.max(2, Math.min(30, shifted)) * 10) / 10 };
 }

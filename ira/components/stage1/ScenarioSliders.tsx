@@ -31,7 +31,6 @@ function Range(props: {
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <label htmlFor={id} className="label flex items-center gap-1">{props.label}<Tip text={props.tip} label={props.label} /></label>
         <output htmlFor={id} className="text-[18px] sm:text-[20px] font-bold whitespace-nowrap">{props.display}</output>
-        <output htmlFor={id} className="text-[18px] sm:text-[20px] font-extrabold whitespace-nowrap">{props.display}</output>
       </div>
       <div className="slider mt-1">
         <div className="track"><div className="done" style={{ width: `${pct(props.value)}%` }} /></div>
@@ -78,7 +77,6 @@ export function ScenarioSliders({ scenario, current, result, onChange, onReset }
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="try-h" className="text-[22px] font-semibold">Set up a new loan</h2>
-          <h2 id="try-h" className="text-[22px] font-bold">Set up a new loan</h2>
           <p className="hint">Move the sliders. Your scores and total cost update as you go.</p>
         </div>
         {undo ? (
@@ -121,7 +119,6 @@ export function ScenarioSliders({ scenario, current, result, onChange, onReset }
       </div>
 
       <details className="mt-6 rounded-lg" style={{ boxShadow: "inset 0 0 0 1.5px var(--line)" }}>
-      <details className="mt-6 rounded-2xl" style={{ boxShadow: "inset 0 0 0 1.5px var(--line)" }}>
         <summary className="cursor-pointer px-4 py-3 font-semibold flex flex-wrap items-center justify-between gap-2">
           <span>More options</span>
           <span className="hint font-normal">{TYPE_LABEL[scenario.loanType]} · {CHANNEL_LABEL[scenario.channel]}</span>

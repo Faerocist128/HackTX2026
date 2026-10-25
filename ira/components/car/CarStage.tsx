@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { buildCar, disposeObject } from "./buildCar";
 import type { CarSpec } from "@/lib/vehicle/models3d";
 
@@ -140,20 +141,9 @@ export default function CarStage({ spec, className, hint = true }: Props) {
     fit(s, true);
 
     if (spec.glb) {
-      new GLTFLoader().load(spec.glb, (gltf) => {
-        const model = gltf.scene;
-        // Normalize: scale to the spec's length, center on the footprint, sit on the ground.
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        model.scale.setScalar(spec.length / Math.max(size.x, size.z));
-        box.setFromObject(model);
-        const c = box.getCenter(new THREE.Vector3());
-        model.position.set(-c.x, -box.min.y, -c.z);
-        model.traverse((o) => { o.castShadow = true; });
-        const root = new THREE.Group();
-        root.add(model);
-        place(root);
-      }, undefined, () => { /* keep the generated car if the file is missing */ });
+      new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(spec.glb, (gltf) => {
+        place(normalizeModel(gltf.scene, spec));
+      }, undefined, (err) => { console.warn(`Couldn't load ${spec.glb}; showing the generated car.`, err); });
     }
     return () => { cancelled = true; };
   }, [spec]);
@@ -161,12 +151,38 @@ export default function CarStage({ spec, className, hint = true }: Props) {
   return (
     <div className={`relative ${className ?? ""}`}>
       <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" role="img" aria-label={`3D model of a ${spec.label.toLowerCase()}. Drag to spin.`} />
+      {spec.credit && (
+        <div className="absolute top-3 right-4 z-20 max-w-[40%] truncate text-[11px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+          {spec.credit.url ? <a href={spec.credit.url} target="_blank" rel="noreferrer" className="underline" style={{ color: "inherit" }}>{spec.credit.text}</a> : spec.credit.text}
+        </div>
+      )}
       {hint && <div className={`pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-20 hint flex items-center gap-1.5 rounded-full px-3 py-1 transition-opacity duration-500 ${dragged ? "opacity-0" : "opacity-100"}`} style={{ background: "var(--card)", boxShadow: "var(--shadow)" }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M3 12a9 4 0 0 0 18 0" /><path d="M18 9l3 3-3 3" /></svg>
         Drag to spin
       </div>}
     </div>
   );
+}
+
+// Fit a downloaded model to the stage: turn its length onto the x axis (the
+// generated cars face +x), scale it to the spec's real length, center it on its
+// footprint and sit it on the ground.
+function normalizeModel(model: THREE.Object3D, spec: CarSpec): THREE.Object3D {
+  const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+  const yaw = (size.z > size.x ? Math.PI / 2 : 0) + THREE.MathUtils.degToRad(spec.rotateY ?? 0);
+  const turned = new THREE.Group();
+  turned.rotation.y = yaw;
+  turned.add(model);
+  const box = new THREE.Box3().setFromObject(turned);
+  const s = spec.length / Math.max(box.max.x - box.min.x, 1e-6);
+  turned.scale.setScalar(s);
+  box.setFromObject(turned);
+  const c = box.getCenter(new THREE.Vector3());
+  turned.position.set(-c.x, -box.min.y, -c.z);
+  turned.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = true; });
+  const root = new THREE.Group();
+  root.add(turned);
+  return root;
 }
 
 // Back the camera off until the spinning car fits both the stage's width and

@@ -6,8 +6,10 @@ import { Header } from "@/components/chrome/Header";
 import { PageBand } from "@/components/chrome/PageBand";
 import { useAuditStore, useHydrated, type CarDraft } from "@/lib/store";
 import type { Condition, MarketRate, Vehicle } from "@/lib/scoring/types";
-import { carSpecFor } from "@/lib/vehicle/models3d";
+import { carSpecFor, modelKey, withModelFile } from "@/lib/vehicle/models3d";
+import { useModelFiles } from "@/components/car/useModelFiles";
 
+const SketchfabStage = dynamic(() => import("@/components/car/SketchfabStage"), { ssr: false });
 const CarStage = dynamic(() => import("@/components/car/CarStage"), { ssr: false, loading: () => <div className="shimmer !h-full !rounded-none" /> });
 
 const CONDITIONS: { id: Condition; label: string; desc: string }[] = [
@@ -144,7 +146,11 @@ export default function CarPage() {
 
   // The stage follows the form; once the lookup returns, it follows the found car.
   const shown = found ? found.vehicle : mode === "ymm" && make && model ? { year, make, model, trim: undefined } : null;
-  const stageSpec = useMemo(() => carSpecFor(shown?.make ?? "", shown?.model ?? "", found?.specs.segment), [shown?.make, shown?.model, found?.specs.segment]);
+  const modelFiles = useModelFiles();
+  const stageSpec = useMemo(() => {
+    const make = shown?.make ?? "", model = shown?.model ?? "";
+    return withModelFile(carSpecFor(make, model, found?.specs.segment), modelFiles[modelKey(make, model)]);
+  }, [shown?.make, shown?.model, found?.specs.segment, modelFiles]);
 
   return (
     <>
@@ -153,7 +159,9 @@ export default function CarPage() {
       <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-10">
         {/* Dark stage with the name bottom-left, like a toyota.com model-page hero. */}
         <section className="rounded-lg overflow-hidden relative text-white" style={{ background: "radial-gradient(110% 80% at 50% 25%, #3a3f47 0%, #1d2025 50%, #0b0b0c 100%)" }}>
-          <CarStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />
+          {stageSpec.sketchfab
+            ? <SketchfabStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />
+            : <CarStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />}
           <div className="absolute inset-x-0 bottom-0 z-10 pointer-events-none px-6 pb-5 pt-16" style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.7))" }}>
             <div className="text-[26px] sm:text-[36px] font-semibold leading-tight">{shown ? `${shown.year} ${shown.make} ${shown.model}${shown.trim ? ` ${shown.trim}` : ""}` : "Your car"}</div>
             <div className="text-[15px]" style={{ color: "rgba(255,255,255,0.8)" }}>{shown ? stageSpec.label : "Pick your car below to see it here"}</div>

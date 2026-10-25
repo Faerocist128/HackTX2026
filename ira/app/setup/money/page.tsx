@@ -58,8 +58,17 @@ export default function MoneyPage() {
     }
   }
 
-  const n = (s: string) => Number(s.replace(/[$,\s]/g, ""));
-  const manualValid = n(form.income) > 0 && n(form.balance) > 0 && n(form.months) > 0 && !Number.isNaN(n(form.debts) || 0);
+  const n = (s: string) => Number(s.replace(/[$,%\s]/g, ""));
+  // Same limits as /api/profile/manual, checked as you type so a typo isn't saved as $0.
+  const bad = (s: string, ok: (x: number) => boolean) => s.trim() !== "" && !(Number.isFinite(n(s)) && ok(n(s)));
+  const errors = {
+    income: bad(form.income, (x) => x > 0 && x <= 1e6) ? "Enter a dollar amount like 5,000 (up to 1,000,000)." : "",
+    debts: bad(form.debts, (x) => x >= 0 && x <= 1e6) ? "Enter a dollar amount like 800, or leave it blank." : "",
+    balance: bad(form.balance, (x) => x > 0 && x <= 1e6) ? "Enter a dollar amount like 5,000 (up to 1,000,000)." : "",
+    apr: bad(form.apr, (x) => x >= 0 && x <= 40) ? "Enter a rate from 0% to 40%, or leave it blank." : "",
+    months: bad(form.months, (x) => Number.isInteger(x) && x >= 1 && x <= 96) ? "Enter whole months from 1 to 96." : "",
+  };
+  const manualValid = !Object.values(errors).some(Boolean) && form.income.trim() !== "" && form.balance.trim() !== "" && form.months.trim() !== "";
   async function next() {
     if (own) {
       const m: ManualInput = {
@@ -68,7 +77,7 @@ export default function MoneyPage() {
         monthlyDebts: n(form.debts) || 0,
         balance: n(form.balance),
         apr: form.apr.trim() ? n(form.apr) : null,
-        monthsLeft: Math.round(n(form.months)),
+        monthsLeft: n(form.months),
         credit: form.credit,
         lates: Number(form.lates),
       };
@@ -128,7 +137,7 @@ export default function MoneyPage() {
               </button>
             );
           })}
-          <button role="radio" aria-checked={own} onClick={() => setOwn(true)} className="card p-5 text-left relative" style={{ boxShadow: own ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--lineStrong)", background: "transparent", minHeight: 128 }}>
+          <button role="radio" aria-checked={own} disabled={!!loading} onClick={() => setOwn(true)} className="card p-5 text-left relative" style={{ boxShadow: own ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--lineStrong)", background: "transparent", minHeight: 128 }}>
             <RadioDot on={own} />
             <div className="pr-8 font-bold text-[20px] leading-tight">Use my own info</div>
             <div className="mt-2 hint">Type in a few rough numbers. Takes about a minute.</div>
@@ -162,11 +171,11 @@ export default function MoneyPage() {
             <p className="hint mt-1">Rough numbers are fine. You can change them later. We save them to a demo bank account.</p>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="First name (optional)" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
-              <Field label="Money coming in each month" prefix="$" value={form.income} onChange={(v) => setForm({ ...form, income: v })} inputMode="decimal" hint="Before taxes." />
-              <Field label="Monthly debt payments" prefix="$" value={form.debts} onChange={(v) => setForm({ ...form, debts: v })} inputMode="decimal" hint="Rent or mortgage, cards, other loans. Not your car." />
-              <Field label="Left to pay on your car" prefix="$" value={form.balance} onChange={(v) => setForm({ ...form, balance: v })} inputMode="decimal" />
-              <Field label="Interest rate (APR)" suffix="%" value={form.apr} onChange={(v) => setForm({ ...form, apr: v })} inputMode="decimal" hint="Not sure of your rate? It's on your monthly loan statement, or leave it blank and we'll estimate." />
-              <Field label="Months left on your loan" value={form.months} onChange={(v) => setForm({ ...form, months: v })} inputMode="numeric" />
+              <Field label="Money coming in each month" prefix="$" value={form.income} onChange={(v) => setForm({ ...form, income: v })} inputMode="decimal" hint="Before taxes." error={errors.income} />
+              <Field label="Monthly debt payments" prefix="$" value={form.debts} onChange={(v) => setForm({ ...form, debts: v })} inputMode="decimal" hint="Rent or mortgage, cards, other loans. Not your car." error={errors.debts} />
+              <Field label="Left to pay on your car" prefix="$" value={form.balance} onChange={(v) => setForm({ ...form, balance: v })} inputMode="decimal" error={errors.balance} />
+              <Field label="Interest rate (APR)" suffix="%" value={form.apr} onChange={(v) => setForm({ ...form, apr: v })} inputMode="decimal" hint="Not sure of your rate? It's on your monthly loan statement, or leave it blank and we'll estimate." error={errors.apr} />
+              <Field label="Months left on your loan" value={form.months} onChange={(v) => setForm({ ...form, months: v })} inputMode="numeric" error={errors.months} />
               <label className="block">
                 <span className="label">How&apos;s your credit?</span>
                 <select className="field mt-2" value={form.credit} onChange={(e) => setForm({ ...form, credit: e.target.value as CreditTier })}>
@@ -217,16 +226,18 @@ function Stat({ label, value, tip }: { label: string; value: string; tip?: strin
   );
 }
 
-function Field(props: { label: string; value: string; onChange: (v: string) => void; prefix?: string; suffix?: string; hint?: string; inputMode?: "decimal" | "numeric" }) {
+function Field(props: { label: string; value: string; onChange: (v: string) => void; prefix?: string; suffix?: string; hint?: string; error?: string; inputMode?: "decimal" | "numeric" }) {
   return (
     <label className="block">
       <span className="label">{props.label}</span>
       <div className="relative mt-2">
         {props.prefix && <span className="absolute left-4 top-1/2 -translate-y-1/2 hint">{props.prefix}</span>}
-        <input className="field" style={{ paddingLeft: props.prefix ? 30 : undefined }} value={props.value} inputMode={props.inputMode} onChange={(e) => props.onChange(e.target.value)} />
+        <input className="field" style={{ paddingLeft: props.prefix ? 30 : undefined }} value={props.value} inputMode={props.inputMode} aria-invalid={!!props.error} onChange={(e) => props.onChange(e.target.value)} />
         {props.suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 hint">{props.suffix}</span>}
       </div>
-      {props.hint && <span className="hint block mt-1.5">{props.hint}</span>}
+      {props.error
+        ? <span className="hint block mt-1.5" role="alert" style={{ color: "var(--redInk)" }}>{props.error}</span>
+        : props.hint && <span className="hint block mt-1.5">{props.hint}</span>}
     </label>
   );
 }

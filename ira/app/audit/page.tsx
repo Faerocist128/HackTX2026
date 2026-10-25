@@ -66,7 +66,7 @@ export default function AuditPage() {
     return (
       <>
         <Header step={3} />
-        <main className="mx-auto w-full max-w-[1248px] px-4 sm:px-8 py-10 grid gap-6 lg:grid-cols-[1.35fr_1fr]" aria-busy>
+        <main className="mx-auto w-full max-w-[1248px] px-4 sm:px-8 py-10 grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr]" aria-busy>
           <p className="sr-only" role="status">Loading your numbers…</p>
           <div className="space-y-6"><div className="card h-[520px] p-6"><div className="shimmer w-1/3" /></div></div>
           <div className="space-y-6"><div className="card h-[360px] p-6"><div className="shimmer w-1/3" /></div></div>
@@ -106,7 +106,7 @@ export default function AuditPage() {
           </section>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr] items-start">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr] items-start">
           <div className="space-y-6 min-w-0">
             <ScenarioSliders scenario={scenario} current={profile.currentAutoLoan} result={result} onChange={setScenario} onReset={resetScenario} />
             <PaymentComparison result={result} scenario={scenario} />

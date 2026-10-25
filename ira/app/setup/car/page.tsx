@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/chrome/Header";
 import { useAuditStore, useHydrated, type CarDraft } from "@/lib/store";
 import type { Condition, MarketRate, Vehicle } from "@/lib/scoring/types";
-import { carSpecFor } from "@/lib/vehicle/models3d";
+import { carSpecFor, modelKey, withModelFile } from "@/lib/vehicle/models3d";
+import { useModelFiles } from "@/components/car/useModelFiles";
 
+const SketchfabStage = dynamic(() => import("@/components/car/SketchfabStage"), { ssr: false });
 const CarStage = dynamic(() => import("@/components/car/CarStage"), { ssr: false, loading: () => <div className="shimmer !h-full !rounded-none" /> });
 
 const CONDITIONS: { id: Condition; label: string; desc: string }[] = [
@@ -143,7 +145,11 @@ export default function CarPage() {
 
   // The stage follows the form; once the lookup returns, it follows the found car.
   const shown = found ? found.vehicle : mode === "ymm" && make && model ? { year, make, model, trim: undefined } : null;
-  const stageSpec = useMemo(() => carSpecFor(shown?.make ?? "", shown?.model ?? "", found?.specs.segment), [shown?.make, shown?.model, found?.specs.segment]);
+  const modelFiles = useModelFiles();
+  const stageSpec = useMemo(() => {
+    const make = shown?.make ?? "", model = shown?.model ?? "";
+    return withModelFile(carSpecFor(make, model, found?.specs.segment), modelFiles[modelKey(make, model)]);
+  }, [shown?.make, shown?.model, found?.specs.segment, modelFiles]);
 
   return (
     <>
@@ -157,7 +163,9 @@ export default function CarPage() {
             <div className="text-[22px] sm:text-[26px] font-extrabold">{shown ? `${shown.year} ${shown.make} ${shown.model}${shown.trim ? ` ${shown.trim}` : ""}` : "Your car"}</div>
             <div className="hint">{shown ? stageSpec.label : "Pick your car below to see it here"}</div>
           </div>
-          <CarStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />
+          {stageSpec.sketchfab
+            ? <SketchfabStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />
+            : <CarStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />}
         </section>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">

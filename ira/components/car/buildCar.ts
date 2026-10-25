@@ -155,12 +155,15 @@ function box(group: THREE.Group, size: [number, number, number], pos: [number, n
   group.add(mesh);
 }
 
-// Frees every geometry and material under an object.
+// Frees every geometry, material and texture under an object.
 export function disposeObject(obj: THREE.Object3D) {
   obj.traverse((o) => {
     if (o instanceof THREE.Mesh) {
       o.geometry.dispose();
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        for (const v of Object.values(m)) if (v instanceof THREE.Texture) v.dispose();
+        m.dispose();
+      }
     }
   });
 }

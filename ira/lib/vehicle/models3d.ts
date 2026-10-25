@@ -1,6 +1,7 @@
 // Library of 3D car specs for the "Your car" stage. Each Toyota gets real-world
 // dimensions (meters) and a body style; components/car/buildCar.ts turns a spec
-// into geometry. Drop a licensed .glb in public/cars/ and set `glb` to use it instead.
+// into geometry. Real models are listed in public/cars/models.json (see
+// docs/3d-car-models.md) and replace the generated car once they load.
 
 export type BodyStyle = "sedan" | "hatch" | "liftback" | "crossSedan" | "coupe" | "suv" | "boxySuv" | "van" | "truck";
 
@@ -13,7 +14,32 @@ export interface CarSpec {
   wheelbase: number;
   wheelRadius: number;
   paint: string;      // hex
-  glb?: string;       // optional path under /public, e.g. "/cars/toyota/camry.glb"
+  glb?: string;       // path under /public, e.g. "/cars/toyota/camry.glb"
+  sketchfab?: string; // Sketchfab model id, shown in Sketchfab's embedded viewer instead
+  embedZoom?: number; // Sketchfab camera distance after framing (1 = whole car, smaller = closer)
+  rotateY?: number;   // degrees to turn the .glb so its nose points the right way
+  credit?: { text: string; url?: string }; // attribution the model's license requires
+}
+
+// One entry in public/cars/models.json, keyed by modelKey().
+export interface ModelFile {
+  file?: string;      // a .glb under /public
+  sketchfab?: string; // or a Sketchfab model link / embed code / id
+  zoom?: number;      // Sketchfab only: camera distance after framing, default 0.8
+  rotateY?: number;
+  credit?: string;
+  creditUrl?: string;
+}
+
+// "Toyota", "Prius Prime (PHEV)" → "toyota/prius prime"
+export function modelKey(make: string, model: string): string {
+  return `${make.trim().toLowerCase()}/${model.replace(/\s*\(.*\)\s*$/, "").trim().toLowerCase()}`;
+}
+
+export function withModelFile(spec: CarSpec, entry: ModelFile | undefined): CarSpec {
+  if (!entry) return spec;
+  const sketchfab = entry.sketchfab?.match(/[0-9a-f]{32}/)?.[0];
+  return { ...spec, glb: entry.file, sketchfab, embedZoom: entry.zoom, rotateY: entry.rotateY, credit: entry.credit ? { text: entry.credit, url: entry.creditUrl } : undefined };
 }
 
 // Profile proportions per body style. Heights are fractions of overall height,
@@ -127,7 +153,7 @@ const OTHER: Record<string, keyof typeof GENERIC> = {
 // makes, then the lookup's segment text (e.g. "full-size truck"), then a sedan.
 export function carSpecFor(make: string, model: string, segment?: string): CarSpec {
   const mk = make.trim().toLowerCase();
-  const md = model.replace(/\s*\(.*\)\s*$/, "").trim().toLowerCase(); // "Prius Prime (PHEV)" → "prius prime"
+  const md = modelKey(make, model).split("/")[1];
   if (mk === "toyota" && TOYOTA_MODELS[md]) return TOYOTA_MODELS[md];
   if (OTHER[md]) return GENERIC[OTHER[md]];
   const seg = (segment ?? "").toLowerCase();

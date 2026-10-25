@@ -53,12 +53,13 @@ interface Props {
   uid: string;          // Sketchfab model id
   label: string;        // what the model is, for screen readers
   zoom?: number;        // camera distance after framing (1 = whole car, smaller = closer)
+  lift?: number;        // raise the car on screen, as a fraction of the camera distance
   className?: string;
 }
 
 // A Sketchfab model on a black stage with Sketchfab's chrome hidden. The stage
 // stays black until the model is ready, then the model fades in.
-export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: Props) {
+export default function SketchfabStage({ uid, label, zoom = ZOOM, lift = 0, className }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState<string | null>(null);
 
@@ -79,7 +80,10 @@ export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: P
             const frameCar = () => api.getCameraLookAt((err, cam) => {
               if (!err) {
                 const pos = cam.position.map((p, i) => cam.target[i] + (p - cam.target[i]) * zoom) as Vec3;
-                api.setCameraLookAt(pos, cam.target, 0);
+                // Sketchfab is z-up: sliding the camera and its target down raises the car on screen.
+                const drop = lift * Math.hypot(...pos.map((p, i) => p - cam.target[i]));
+                const down = (v: Vec3): Vec3 => [v[0], v[1], v[2] - drop];
+                api.setCameraLookAt(down(pos), down(cam.target), 0);
               }
               if (live) setTimeout(() => setReady(uid), 150);
             });
@@ -90,7 +94,7 @@ export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: P
       });
     }).catch(() => { /* leave the stage empty */ });
     return () => { live = false; };
-  }, [uid, zoom]);
+  }, [uid, zoom, lift]);
 
   return (
     <div className={`relative overflow-hidden bg-black ${className ?? ""}`}>

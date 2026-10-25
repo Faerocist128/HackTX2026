@@ -1,6 +1,6 @@
 /*
  * Candidate next steps. Each one is a concrete change to the inputs, and its
- * "+N pts" comes from re-running scoreRefinance() with that change applied, never
+ * "+N points" on each scale comes from re-running scoreRefinance() with that change applied, never
  * from the AI (plan, Stage 2). The same transforms power the "with your checked
  * steps" preview, which applies the checked ones together.
  */
@@ -15,8 +15,18 @@ export interface StepCandidate {
   why: string;
   nessieEvidence: string;
   timeframe: string;
-  impact: number; // engine-computed score delta
+  impact: StepImpact; // engine-computed score deltas
   apply: (i: ScoreInput) => ScoreInput;
+}
+
+export interface StepImpact { odds: number; worth: number }
+
+/** "+8 approval points · +3 value points", for the UI and the AI prompt. */
+export function impactLabel(i: StepImpact): string {
+  const parts = [];
+  if (i.odds > 0) parts.push(`+${i.odds} approval point${i.odds === 1 ? "" : "s"}`);
+  if (i.worth > 0) parts.push(`+${i.worth} value point${i.worth === 1 ? "" : "s"}`);
+  return parts.join(" · ");
 }
 
 const usd = (x: number) => `$${Math.round(x).toLocaleString("en-US")}`;
@@ -77,7 +87,7 @@ export function candidateSteps(input: ScoreInput, base: ScoreResult = scoreRefin
   }
 
   if (scenario.channel !== "creditUnion" && !base.knockouts.length) {
-    const cu = estimateApr(profile.estCreditTier, m.ltv, vehicleAgeYears(vehicle.year), scenario.termMonths, "creditUnion");
+    const cu = estimateApr(profile.estCreditTier, m.ltv, vehicleAgeYears(vehicle.year), scenario.termMonths, "creditUnion", { market: input.market, loanType: scenario.loanType });
     drafts.push({
       id: "shop",
       title: "Compare 2–3 lenders, including a credit union, in one week",
@@ -136,7 +146,7 @@ export function candidateSteps(input: ScoreInput, base: ScoreResult = scoreRefin
     });
   }
 
-  if (scenario.extraMonthlyPayment < 50 && base.band !== "green") {
+  if (scenario.extraMonthlyPayment < 50 && base.worth.band !== "green") {
     drafts.push({
       id: "extra",
       title: "Add $50 a month to your new payment",
@@ -152,15 +162,19 @@ export function candidateSteps(input: ScoreInput, base: ScoreResult = scoreRefin
   }
 
   return drafts
-    .map((d) => ({ ...d, impact: scoreRefinance(d.apply(input)).score - base.score }))
-    .filter((s) => s.impact > 0)
-    .sort((a, b) => b.impact - a.impact)
+    .map((d) => {
+      const r = scoreRefinance(d.apply(input));
+      return { ...d, impact: { odds: r.odds.score - base.odds.score, worth: r.worth.score - base.worth.score } };
+    })
+    .filter((s) => s.impact.odds > 0 || s.impact.worth > 0)
+    .sort((a, b) => b.impact.odds + b.impact.worth - (a.impact.odds + a.impact.worth))
     .slice(0, 4);
 }
 
-/** Score with several steps applied together (the design's "with your checked steps" preview). */
-export function previewWithSteps(input: ScoreInput, steps: StepCandidate[], ids: string[]): number {
+/** Scores with several steps applied together (the design's "with your checked steps" preview). */
+export function previewWithSteps(input: ScoreInput, steps: StepCandidate[], ids: string[]): StepImpact {
   let next = input;
   for (const s of steps) if (ids.includes(s.id)) next = s.apply(next);
-  return scoreRefinance(next).score;
+  const r = scoreRefinance(next);
+  return { odds: r.odds.score, worth: r.worth.score };
 }

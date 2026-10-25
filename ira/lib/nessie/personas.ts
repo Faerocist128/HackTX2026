@@ -1,8 +1,10 @@
-// The three demo personas from the build plan. Each is described once here and
-// rendered into Nessie-shaped records relative to "today", so the seed script and
-// the offline fixtures always agree and never go stale.
+// The three demo personas from the build plan, plus the same shape built from
+// "Use my own info". Each is rendered into Nessie records relative to "today" and
+// written to Nessie (write.ts); the app reads them back from the live API.
 
-import type { Condition } from "../scoring/types";
+import { balanceAfter } from "../scoring/loanMath";
+import { TIER_MID_SCORE } from "../scoring/rateModel";
+import type { Condition, CreditTier } from "../scoring/types";
 import type { NessieBill, NessieBundle, NessieDeposit, NessieLoan } from "./types";
 
 export interface PersonaSpec {
@@ -14,14 +16,14 @@ export interface PersonaSpec {
   grossMonthlyIncome: number;
   savings: number;
   checking: number;
-  card: { balance: number; limit: number };
+  card?: { balance: number; limit: number };
   creditScore: number;
   /** Monthly obligations other than the car loan. `debt` ones count toward DTI. */
   bills: { payee: string; amount: number; dueDay: number; debt: boolean }[];
   /** Bill payee + months ago (1 = last month) + days late, for each late payment. */
   lates: { payee: string; monthsAgo: number; daysLate: number }[];
   loan: { amount: number; apr: number; term: number; paid: number; subsidized?: boolean };
-  vehicle: { year: number; make: string; model: string; trim?: string; mileage: number; condition: Condition; vin?: string };
+  vehicle?: { year: number; make: string; model: string; trim?: string; mileage: number; condition: Condition; vin?: string };
 }
 
 export const PERSONAS: PersonaSpec[] = [
@@ -171,7 +173,53 @@ export function personaLoan(p: PersonaSpec, monthlyPayment: number): NessieLoan 
   };
 }
 
-/** Offline fixture: the same records the seed script writes, with stable fake ids. */
+export interface ManualInput {
+  firstName: string;
+  monthlyIncome: number;
+  monthlyDebts: number;
+  balance: number;
+  apr: number | null; // blank → estimate (design: "leave it blank and we'll estimate")
+  monthsLeft: number;
+  credit: CreditTier;
+  lates: number;
+}
+
+/** Research §1: market average for an existing loan when the user doesn't know their APR. */
+export const AVG_USED_LOAN_APR = 11.19;
+
+/*
+ * "Use my own info" as a Nessie person. The original loan is back-solved so that
+ * normalize() reads the same balance and months left that were typed in:
+ * B_k is linear in P, so P = balance / B_k(1). Late payments are placed on the
+ * debts bill (or a small "Other bills" bill when there are no debts), since
+ * Nessie only records lateness on bills.
+ */
+export function manualSpec(m: ManualInput): PersonaSpec {
+  const apr = m.apr ?? AVG_USED_LOAN_APR;
+  const term = Math.max(m.monthsLeft, Math.ceil((m.monthsLeft + 12) / 12) * 12);
+  const paid = term - m.monthsLeft;
+  const unit = balanceAfter(1, apr, term, paid);
+  const bills: PersonaSpec["bills"] = [];
+  if (m.monthlyDebts > 0) bills.push({ payee: "Monthly debt payments", amount: Math.round(m.monthlyDebts), dueDay: 1, debt: true });
+  if (m.lates > 0 && !bills.length) bills.push({ payee: "Other bills", amount: 50, dueDay: 15, debt: false });
+  const latePayee = bills[0]?.payee;
+  return {
+    id: "manual",
+    first: (m.firstName || "You").replace(/[^\x20-\x7e]/g, "").slice(0, 40) || "You",
+    last: "(own info)",
+    blurb: "Your own info",
+    targetBand: "yellow",
+    grossMonthlyIncome: m.monthlyIncome,
+    savings: 0,
+    checking: 0,
+    creditScore: TIER_MID_SCORE[m.credit],
+    bills,
+    lates: Array.from({ length: m.lates }, (_, i) => ({ payee: latePayee!, monthsAgo: 2 + i * 3, daysLate: 35 })),
+    loan: { amount: Math.round((m.balance / Math.max(unit, 1e-6)) * 100) / 100, apr, term, paid },
+  };
+}
+
+/** The same records the seed script writes, with stable fake ids (tests and scripts only). */
 export function personaBundle(p: PersonaSpec, monthlyPayment: number, asOf = new Date()): NessieBundle {
   const ids = { chk: `${p.id}-chk`, sav: `${p.id}-sav`, card: `${p.id}-card` };
   return {
@@ -179,7 +227,7 @@ export function personaBundle(p: PersonaSpec, monthlyPayment: number, asOf = new
     accounts: [
       { _id: ids.chk, type: "Checking", nickname: "Everyday checking", rewards: 0, balance: p.checking },
       { _id: ids.sav, type: "Savings", nickname: "Savings", rewards: 0, balance: p.savings },
-      { _id: ids.card, type: "Credit Card", nickname: `Card | limit ${p.card.limit}`, rewards: 0, balance: p.card.balance },
+      ...(p.card ? [{ _id: ids.card, type: "Credit Card" as const, nickname: `Card | limit ${p.card.limit}`, rewards: 0, balance: p.card.balance }] : []),
     ],
     bills: { [ids.chk]: personaBills(p, asOf) },
     deposits: { [ids.chk]: personaDeposits(p, asOf) },

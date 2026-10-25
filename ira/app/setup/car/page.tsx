@@ -1,10 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Footer, Header } from "@/components/chrome/Header";
-import { useAuditStore, useHydrated } from "@/lib/store";
-import type { Condition, Vehicle } from "@/lib/scoring/types";
-import { MSRP_BASELINE } from "@/lib/vehicle/value";
+import { useEffect, useState } from "react";
+import { Header } from "@/components/chrome/Header";
+import { useAuditStore, useHydrated, type CarDraft } from "@/lib/store";
+import type { Condition, MarketRate, Vehicle } from "@/lib/scoring/types";
 
 const CONDITIONS: { id: Condition; label: string; desc: string }[] = [
   { id: "excellent", label: "Excellent", desc: "Looks almost new. No dents or warning lights." },
@@ -12,71 +11,131 @@ const CONDITIONS: { id: Condition; label: string; desc: string }[] = [
   { id: "fair", label: "Fair", desc: "Some dents, worn inside, or needs minor repairs." },
   { id: "poor", label: "Poor", desc: "Major damage or mechanical problems." },
 ];
-const YEARS = Array.from({ length: 17 }, (_, i) => 2027 - i);
-const title = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase()).replace("Rav4", "RAV4").replace("Cr-V", "CR-V").replace("Hr-V", "HR-V").replace("Gr ", "GR ").replace("4runner", "4Runner");
+// Model years run from 1995 through next year's models, which go on sale this autumn.
+const NEWEST = new Date().getFullYear() + 1;
+const YEARS = Array.from({ length: NEWEST - 1995 + 1 }, (_, i) => NEWEST - i);
+const MAX_MILES = 500_000;
 const usd = (x: number) => `$${Math.round(x).toLocaleString("en-US")}`;
 
-interface PersonaRow { id: string; vehicle: Omit<Vehicle, "estValue"> }
-interface VehicleResponse { vehicle: Vehicle; history: { openRecalls: string[] }; historySource: string; error?: string }
+type CarInput = Omit<Vehicle, "estValue" | "estRetail">;
+interface PersonaRow { id: string; vehicle?: CarInput }
+interface VehicleResponse {
+  vehicle: Vehicle;
+  specs: { baseMsrp: number; segment: string; depreciationSource: "research" | "gemini" };
+  market: MarketRate | null;
+  history: { openRecalls: string[] };
+  historySource: string;
+  error?: string;
+}
 
 export default function CarPage() {
   const router = useRouter();
   const hydrated = useHydrated();
-  const { profile, personaId, vehicle: saved, setVehicle } = useAuditStore();
+  const { profile, personaId, vehicle: saved, carDraft, setCarDraft, setVehicle } = useAuditStore();
   const [mode, setMode] = useState<"vin" | "ymm">("ymm");
   const [vin, setVin] = useState("");
-  const [year, setYear] = useState(2021);
-  const [make, setMake] = useState("toyota");
-  const [model, setModel] = useState("camry");
-  const [mileage, setMileage] = useState("45000");
+  const [year, setYear] = useState<number | "">("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [mileage, setMileage] = useState("");
   const [condition, setCondition] = useState<Condition>("good");
+  const [makes, setMakes] = useState<string[] | null>(null);
+  const [models, setModels] = useState<string[] | null>(null);
   const [found, setFound] = useState<VehicleResponse | null>(null);
+  // Where the prefilled car came from, for the heading; null once the user edits it.
+  const [source, setSource] = useState<"saved" | "profile" | null>(null);
+  const [restored, setRestored] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // No profile yet → back to step 1.
   useEffect(() => { if (hydrated && !profile) router.replace("/setup/money"); }, [hydrated, profile, router]);
 
-  // Prefill from the persona's car (or the saved one).
+  // Prefill once: what you last typed here, else the car you saved, else the persona's car on file.
   useEffect(() => {
-    if (!hydrated) return;
-    const apply = (v: Omit<Vehicle, "estValue">) => {
-      setYear(v.year); setMake(v.make.toLowerCase()); setModel(v.model.toLowerCase()); setMileage(String(v.mileage)); setCondition(v.condition);
-      if (v.vin) { setVin(v.vin); }
+    if (!hydrated || restored) return;
+    setRestored(true);
+    const applyDraft = (d: CarDraft) => {
+      setMode(d.mode); setVin(d.vin); setYear(d.year); setMake(d.make); setModel(d.model); setMileage(d.mileage); setCondition(d.condition);
     };
-    if (saved) { apply(saved); return; }
-    if (personaId) fetch("/api/profile").then((r) => r.json()).then((rows: PersonaRow[]) => { const p = rows.find((r) => r.id === personaId); if (p) apply(p.vehicle); });
-  }, [hydrated, personaId, saved]);
+    const applyCar = (v: CarInput, from: "saved" | "profile") => {
+      applyDraft({ mode: v.vin ? "vin" : "ymm", vin: v.vin ?? "", year: v.year, make: v.make, model: v.model, mileage: String(v.mileage), condition: v.condition });
+      setSource(from);
+    };
+    const isSaved = (d: CarDraft) =>
+      !!saved && d.year === saved.year && d.make === saved.make && d.model === saved.model && Number(d.mileage) === saved.mileage && d.condition === saved.condition;
+    if (carDraft) { applyDraft(carDraft); if (isSaved(carDraft)) setSource("saved"); return; }
+    if (saved) { applyCar(saved, "saved"); return; }
+    if (personaId && personaId !== "manual")
+      fetch("/api/profile").then((r) => r.json()).then((rows: PersonaRow[]) => { const p = rows.find((r) => r.id === personaId); if (p?.vehicle) applyCar(p.vehicle, "profile"); });
+  }, [hydrated, restored, carDraft, saved, personaId]);
 
-  const models = useMemo(() => Object.keys(MSRP_BASELINE[make] ?? {}), [make]);
-  const miles = Number(mileage.replace(/[,\s]/g, ""));
-  const vinOk = /^[A-HJ-NPR-Z0-9]{17}$/i.test(vin.trim());
-  const ready = Number.isFinite(miles) && miles >= 0 && (mode === "vin" ? vinOk : !!model);
-
-  // Re-estimate whenever inputs settle.
+  // Keep what's typed in the store, so Back and the stepper links don't lose it.
   useEffect(() => {
+    if (restored) setCarDraft({ mode, vin, year, make, model, mileage, condition });
+  }, [restored, mode, vin, year, make, model, mileage, condition, setCarDraft]);
+
+  // Any edit by the user means the car is no longer the prefilled one.
+  const edit = <T,>(set: (v: T) => void) => (v: T) => { setSource(null); set(v); };
+
+  // Makes for the chosen year (NHTSA).
+  useEffect(() => {
+    if (!year || makes) return;
+    fetch(`/api/vehicle/catalog?year=${year}`).then((r) => r.json()).then((j) => (j.error ? setError(j.error) : setMakes(j.makes))).catch(() => setError("We couldn't load the list of cars. Try your VIN instead."));
+  }, [year, makes]);
+
+  // Models for the chosen year and make (NHTSA).
+  useEffect(() => {
+    setModels(null);
+    if (!year || !make) return;
+    const ctl = new AbortController();
+    fetch(`/api/vehicle/catalog?year=${year}&make=${encodeURIComponent(make)}`, { signal: ctl.signal })
+      .then((r) => r.json())
+      .then((j) => setModels(j.models ?? []))
+      .catch(() => {});
+    return () => ctl.abort();
+  }, [year, make]);
+
+  const miles = Number(mileage.replace(/[,\s]/g, ""));
+  const milesOk = mileage.trim() !== "" && Number.isFinite(miles) && miles >= 0 && miles <= MAX_MILES;
+  const vinOk = /^[A-HJ-NPR-Z0-9]{17}$/i.test(vin.trim());
+  const carOk = mode === "vin" ? vinOk : !!(year && make && model);
+  const ready = carOk && milesOk;
+
+  // Switching how you pick the car starts the lookup over.
+  function switchMode(m: "vin" | "ymm") {
+    if (m === mode) return;
+    setMode(m); setFound(null); setError(null); setSource(null);
+  }
+
+  // Look the car up once its inputs are complete.
+  useEffect(() => {
+    setFound(null);
     if (!ready) return;
     const ctl = new AbortController();
     const t = setTimeout(async () => {
       setBusy(true); setError(null);
       try {
-        const body = mode === "vin" ? { vin: vin.trim(), mileage: miles, condition } : { year, make: title(make), model: title(model), mileage: miles, condition };
+        const car = mode === "vin" ? { vin: vin.trim() } : { year, make, model };
+        const body = { ...car, mileage: miles, condition, tier: profile?.estCreditTier };
         const res = await fetch("/api/vehicle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal });
         const json = (await res.json()) as VehicleResponse;
-        if (!res.ok) { setFound(null); setError(json.error ?? "We couldn't find that car."); }
+        if (!res.ok) setError(json.error ?? "We couldn't find that car.");
         else setFound(json);
       } catch (e) {
-        if ((e as Error).name !== "AbortError") setError("We couldn't reach the vehicle lookup. Try year, make and model.");
+        if ((e as Error).name !== "AbortError") setError("We couldn't reach the vehicle lookup. Try again.");
       } finally { if (!ctl.signal.aborted) setBusy(false); }
-    }, 350);
+    }, 450);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [ready, mode, vin, year, make, model, miles, condition]);
+  }, [ready, mode, vin, year, make, model, miles, condition, profile?.estCreditTier]);
 
   function next() {
     if (!found) return;
-    setVehicle(found.vehicle);
+    setVehicle(found.vehicle, found.market);
     router.push("/audit");
   }
+
+  const modelOptions = models && model && !models.includes(model) ? [model, ...models] : models;
 
   return (
     <>
@@ -89,15 +148,15 @@ export default function CarPage() {
           <section className="card p-6 mt-8">
             <h2 className="text-[19px] font-bold">Which car is it?</h2>
             <div className="seg-group mt-4 max-w-[440px]">
-              <button className="seg" aria-pressed={mode === "vin"} onClick={() => setMode("vin")}>Use my VIN</button>
-              <button className="seg" aria-pressed={mode === "ymm"} onClick={() => setMode("ymm")}>Choose year, make, model</button>
+              <button className="seg" aria-pressed={mode === "vin"} onClick={() => switchMode("vin")}>Use my VIN</button>
+              <button className="seg" aria-pressed={mode === "ymm"} onClick={() => switchMode("ymm")}>Choose year, make, model</button>
             </div>
 
             {mode === "vin" ? (
               <div className="mt-5">
                 <label className="block">
                   <span className="label">Vehicle ID number (VIN)</span>
-                  <input className="field mt-2 uppercase tracking-wider" maxLength={17} value={vin} onChange={(e) => setVin(e.target.value)} aria-describedby="vin-help" />
+                  <input className="field mt-2 uppercase tracking-wider" maxLength={17} value={vin} onChange={(e) => edit(setVin)(e.target.value)} aria-describedby="vin-help" />
                 </label>
                 <p id="vin-help" className="hint mt-1.5">17 letters and numbers. {vin && !vinOk && <span style={{ color: "var(--redInk)" }}>That doesn&apos;t look like a full VIN yet.</span>}</p>
                 <details className="mt-3 hint">
@@ -108,28 +167,42 @@ export default function CarPage() {
                     <li>Your insurance card or registration</li>
                   </ul>
                 </details>
-                <button className="mt-3 hint underline" onClick={() => setMode("ymm")}>Don&apos;t know your VIN? Choose year/make/model instead</button>
+                <button className="mt-3 hint underline" onClick={() => switchMode("ymm")}>Don&apos;t know your VIN? Choose year/make/model instead</button>
               </div>
             ) : (
               <div className="mt-5 grid gap-4 sm:grid-cols-3">
                 <label className="block"><span className="label">Year</span>
-                  <select className="field mt-2" value={year} onChange={(e) => setYear(Number(e.target.value))}>{YEARS.map((y) => <option key={y}>{y}</option>)}</select>
+                  <select className="field mt-2" value={year} onChange={(e) => { edit(setYear)(Number(e.target.value)); setModel(""); }}>
+                    <option value="" disabled>Choose…</option>
+                    {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
                 </label>
                 <label className="block"><span className="label">Make</span>
-                  <select className="field mt-2" value={make} onChange={(e) => { setMake(e.target.value); setModel(Object.keys(MSRP_BASELINE[e.target.value])[0]); }}>
-                    {Object.keys(MSRP_BASELINE).map((m) => <option key={m} value={m}>{title(m)}</option>)}
+                  <select className="field mt-2" value={make} disabled={!year || !makes} onChange={(e) => { edit(setMake)(e.target.value); setModel(""); }}>
+                    <option value="" disabled>{!year ? "Pick a year first" : makes ? "Choose…" : "Loading…"}</option>
+                    {makes && make && !makes.includes(make) && <option value={make}>{make}</option>}
+                    {makes?.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </label>
                 <label className="block"><span className="label">Model</span>
-                  <select className="field mt-2" value={model} onChange={(e) => setModel(e.target.value)}>{models.map((m) => <option key={m} value={m}>{title(m)}</option>)}</select>
+                  <select className="field mt-2" value={model} disabled={!make || !modelOptions} onChange={(e) => edit(setModel)(e.target.value)}>
+                    <option value="" disabled>{!make ? "Pick a make first" : !modelOptions ? "Loading…" : modelOptions.length ? "Choose…" : `No ${year} ${make} models found`}</option>
+                    {modelOptions?.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
                 </label>
               </div>
             )}
 
             <label className="block mt-6 max-w-[280px]">
               <span className="label">Miles on the car</span>
-              <input className="field mt-2" inputMode="numeric" value={mileage} onChange={(e) => setMileage(e.target.value)} />
-              <span className="hint block mt-1.5">It&apos;s on your dashboard. A close guess is fine.</span>
+              <input className="field mt-2" inputMode="numeric" value={mileage} placeholder="e.g. 45,000" onChange={(e) => edit(setMileage)(e.target.value)} aria-invalid={mileage !== "" && !milesOk} />
+              <span className="hint block mt-1.5">
+                {mileage !== "" && !milesOk
+                  ? <span style={{ color: "var(--redInk)" }}>Enter a number from 0 to {MAX_MILES.toLocaleString()}.</span>
+                  : miles > 300_000
+                    ? <span style={{ color: "var(--amber)" }}>That&apos;s a lot of miles. Double-check the odometer: at this point a car is valued close to scrap.</span>
+                    : "It's on your dashboard. A close guess is fine."}
+              </span>
             </label>
 
             <fieldset className="mt-6">
@@ -137,7 +210,7 @@ export default function CarPage() {
               <p className="hint">Be honest. It only changes the estimate.</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup">
                 {CONDITIONS.map((c) => (
-                  <button key={c.id} role="radio" aria-checked={condition === c.id} onClick={() => setCondition(c.id)} className="text-left rounded-2xl p-4 transition-shadow" style={{ background: "var(--card)", boxShadow: condition === c.id ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--line)" }}>
+                  <button key={c.id} role="radio" aria-checked={condition === c.id} onClick={() => edit(setCondition)(c.id)} className="text-left rounded-2xl p-4 transition-shadow" style={{ background: "var(--card)", boxShadow: condition === c.id ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--line)" }}>
                     <div className="font-bold">{c.label}</div>
                     <div className="hint">{c.desc}</div>
                   </button>
@@ -151,16 +224,21 @@ export default function CarPage() {
           <section className="card p-6" aria-live="polite">
             {found ? (
               <div className="rise">
-                <p className="font-semibold" style={{ color: "var(--green)" }}>✓ We found your car</p>
+                <p className="font-semibold" style={{ color: "var(--green)" }}>
+                  ✓ {source === "saved" ? "Your saved car" : source === "profile" ? "Your car from your profile" : mode === "vin" ? "We found your car from its VIN" : "Here's your car"}
+                </p>
                 <div className="mt-4 rounded-2xl h-28 flex items-center justify-center" style={{ background: "var(--chip)" }} aria-hidden>
                   <svg width="88" height="44" viewBox="0 0 88 44" fill="none" stroke="var(--ink2)" strokeWidth="2.5" strokeLinejoin="round"><path d="M6 32h76v-8l-10-4-12-10H30L18 20 6 24z" /><circle cx="24" cy="34" r="6" fill="var(--chip)" /><circle cx="66" cy="34" r="6" fill="var(--chip)" /></svg>
                 </div>
                 <h2 className="mt-4 text-[24px] font-extrabold">{found.vehicle.year} {found.vehicle.make} {found.vehicle.model}{found.vehicle.trim ? ` ${found.vehicle.trim}` : ""}</h2>
-                <p className="hint">{found.vehicle.mileage.toLocaleString()} miles · {CONDITIONS.find((c) => c.id === found.vehicle.condition)?.label} condition</p>
+                <p className="hint">{found.vehicle.mileage.toLocaleString()} miles · {CONDITIONS.find((c) => c.id === found.vehicle.condition)?.label} condition · {found.specs.segment}</p>
                 <div className="mt-5 rounded-2xl p-4" style={{ background: "var(--chip)" }}>
                   <div className="hint">Estimated trade-in value</div>
                   <div className={`text-[32px] font-extrabold ${busy ? "opacity-50" : ""}`}>{usd(found.vehicle.estValue)}</div>
-                  <div className="hint">Retail about {usd(found.vehicle.estRetail ?? 0)}. Lenders usually use the lower trade-in number. This is an estimate.</div>
+                  <div className="hint">
+                    Retail about {usd(found.vehicle.estRetail ?? 0)}. Lenders usually use the lower trade-in number. Based on a {usd(found.specs.baseMsrp)} price when new (Gemini) and{" "}
+                    {found.specs.depreciationSource === "research" ? "researched" : "Gemini's"} depreciation for this model. This is an estimate.
+                  </div>
                 </div>
                 {found.history.openRecalls.length > 0 && (
                   <p className="mt-4 rounded-2xl p-3 text-[15px]" style={{ background: "var(--amberSoft)", color: "var(--amber)" }}>
@@ -170,17 +248,23 @@ export default function CarPage() {
               </div>
             ) : error ? (
               <p role="alert" style={{ color: "var(--redInk)" }} className="font-semibold">{error}</p>
+            ) : busy ? (
+              <div className="space-y-3" aria-busy><p className="hint">Looking up your car and pricing it with Gemini…</p><div className="shimmer !h-28" /><div className="shimmer w-2/3" /><div className="shimmer w-1/2" /></div>
             ) : (
-              <div className="space-y-3"><div className="shimmer !h-28" /><div className="shimmer w-2/3" /><div className="shimmer w-1/2" /></div>
+              <div>
+                <h2 className="text-[19px] font-bold">Tell us about your car</h2>
+                <p className="hint mt-1">
+                  {mode === "vin" ? "Enter your VIN" : "Choose the year, make and model"} and the miles, and we&apos;ll estimate what it&apos;s worth.
+                </p>
+              </div>
             )}
           </section>
           <div className="flex justify-between gap-4">
             <button className="btn btn-ghost" onClick={() => router.push("/setup/money")}>Back</button>
-            <button className="btn btn-primary" disabled={!found || busy} onClick={next}>See my score <span aria-hidden>→</span></button>
+            <button className="btn btn-primary" disabled={!found || busy} onClick={next}>See my scores <span aria-hidden>→</span></button>
           </div>
         </aside>
       </main>
-      <Footer />
     </>
   );
 }

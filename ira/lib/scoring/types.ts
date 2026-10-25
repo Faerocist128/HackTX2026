@@ -29,7 +29,7 @@ export interface FinancialProfile {
   currentAutoLoan: AutoLoan;
   /** Plain-language facts pulled from the source data, for evidence in next steps. */
   evidence: string[];
-  source: "nessie" | "fixture" | "manual";
+  source: "nessie";
 }
 
 export type Condition = "excellent" | "good" | "fair" | "poor";
@@ -67,6 +67,9 @@ export type Band = "red" | "yellow" | "green";
 export type Verdict = "notEligible" | "keepCurrentLoan" | "wellPositioned" | "possible" | "notYet";
 export type Approval = "high" | "medium" | "low";
 
+/** The two scales: how likely a lender says yes, and whether the refinance is worth it. */
+export type ScaleKey = "odds" | "worth";
+
 export interface FactorBreakdown {
   key: FactorKey;
   label: string;
@@ -78,18 +81,17 @@ export interface FactorBreakdown {
   note: string;
 }
 
-export type FactorKey =
-  | "rateGap"
-  | "npvSavings"
-  | "lifetimeCost"
-  | "breakEven"
-  | "ltv"
-  | "dti"
-  | "pti"
-  | "paymentHistory"
-  | "creditTier"
-  | "vehicle"
-  | "loanStructure";
+export type OddsFactorKey = "creditTier" | "paymentHistory" | "ltv" | "dti" | "pti" | "vehicle" | "loanStructure";
+export type WorthFactorKey = "rateGap" | "npvSavings" | "lifetimeCost" | "breakEven" | "paymentFit" | "loanRisk";
+export type FactorKey = OddsFactorKey | WorthFactorKey;
+
+export interface Scale {
+  score: number; // 1–100: the sum of factor points, unless capped
+  band: Band; // always bandOf(score), so the dial, number and label agree
+  factors: FactorBreakdown[];
+  /** Sum of factor points when a knockout capped the score below it. */
+  uncappedScore?: number;
+}
 
 export interface ScoreMetrics {
   payoff: number;
@@ -101,8 +103,16 @@ export interface ScoreMetrics {
   npvSavings: number;
   currentInterestLeft: number;
   newTotalInterest: number;
-  lifetimeInterestDelta: number; // positive = refinance costs less over its life, net of fees
-  breakEvenMonths: number | null;
+  /** Interest the extra monthly payment saves versus the same loan without it. */
+  extraInterestSaved: number;
+  /** Months sooner the extra monthly payment pays the new loan off. */
+  extraMonthsSooner: number;
+  /** Upfront fees + projected late fees − refunds on the loan the user built. */
+  newFees: number;
+  lifetimeInterestDelta: number; // = currentInterestLeft − newTotalInterest − newFees
+  breakEvenMonths: number | null; // term-matched (§6), used by the score
+  /** Months for the built loan's lower payment to repay the upfront fees; null if the payment isn't lower. */
+  breakEvenMonthsScenario: number | null;
   ltv: number;
   ltvRetail: number | null;
   pti: number;
@@ -111,23 +121,30 @@ export interface ScoreMetrics {
   likelyAprRange: [number, number];
   creditedApr: number; // the APR the economics actually use (target, floored at likely low)
   monthsToPayoff: number;
+  currentMonthsLeft: number;
 }
 
 export interface ScoreResult {
-  score: number;
-  band: Band;
+  odds: Scale;
+  worth: Scale;
   verdict: Verdict;
   approval: Approval;
   knockouts: string[];
   reasons: string[];
-  factors: FactorBreakdown[];
   metrics: ScoreMetrics;
   checkAgainMonths: number | null;
+}
+
+/** Gemini's market-rate check, blended into the research rate model (see rateModel.ts). */
+export interface MarketRate {
+  typicalApr: number;
+  note: string;
 }
 
 export interface ScoreInput {
   profile: FinancialProfile;
   vehicle: Vehicle;
   scenario: Scenario;
+  market?: MarketRate | null;
   asOf?: Date;
 }

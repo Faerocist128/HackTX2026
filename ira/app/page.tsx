@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Footer, Header } from "@/components/chrome/Header";
+import { Header } from "@/components/chrome/Header";
 import { brand } from "@/lib/brand";
 
 const HOW = [
@@ -11,29 +11,20 @@ const HOW = [
 export default function Landing() {
   return (
     <>
-      <Header right={<Link href="/setup/money" className="btn btn-ghost btn-sm">Start</Link>} />
+      <Header />
       <main>
-        <section className="mx-auto max-w-[1200px] px-4 sm:px-10 py-14 sm:py-20 grid gap-12 lg:grid-cols-[1.2fr_1fr] items-center">
-          <div className="rise">
+        <section className="mx-auto max-w-[1200px] px-4 sm:px-10 py-14 sm:py-20">
+          <div className="rise max-w-[760px]">
             <p className="hint font-semibold" style={{ color: "var(--redInk)" }}>Free, and takes about 2 minutes</p>
             <h1 className="mt-4 text-[40px] sm:text-[56px] leading-[1.05] font-extrabold tracking-tight">Is now the right time to refinance your car?</h1>
             <p className="mt-5 text-[19px] max-w-[520px]" style={{ color: "var(--ink2)" }}>
-              Get your free Refinance Score in 2 minutes. No credit check. No commitment.
+              Get two free scores in 2 minutes: how likely a lender is to say yes, and whether refinancing is worth it for you. No credit check. No commitment.
               {brand.owner && <> {brand.tagline}</>}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link href="/setup/money" className="btn btn-primary">Start my audit <span aria-hidden>→</span></Link>
               <span className="hint">You can try it with a demo profile first.</span>
             </div>
-          </div>
-          <div className="card p-7 rise max-w-[420px] w-full justify-self-center" style={{ animationDelay: "120ms" }} aria-label="Example score">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[18px]">Your score</span>
-              <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--chip)", color: "var(--ink2)" }}>EXAMPLE</span>
-            </div>
-            <div className="text-[72px] font-extrabold leading-none mt-6" style={{ color: "var(--green)" }}>72</div>
-            <div className="mt-3 inline-flex px-3 py-1.5 rounded-full font-bold" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>Good time to refinance</div>
-            <p className="mt-4 font-semibold">You&apos;d save $64/mo</p>
           </div>
         </section>
         <section id="how" className="mx-auto max-w-[1200px] px-4 sm:px-10 pb-16">
@@ -59,7 +50,6 @@ export default function Landing() {
           </ul>
         </section>
       </main>
-      <Footer />
     </>
   );
 }

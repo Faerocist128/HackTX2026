@@ -26,7 +26,7 @@ export const ProfileSchema = z.object({
     subsidized: z.boolean().optional(),
   }),
   evidence: z.array(z.string().max(300)).max(20),
-  source: z.enum(["nessie", "fixture", "manual"]),
+  source: z.literal("nessie"),
 });
 
 export const VehicleSchema = z.object({
@@ -35,7 +35,7 @@ export const VehicleSchema = z.object({
   make: z.string().max(40),
   model: z.string().max(60),
   trim: z.string().max(60).optional(),
-  mileage: z.number().min(0).max(1e6),
+  mileage: z.number().min(0).max(500_000),
   condition: z.enum(["excellent", "good", "fair", "poor"]),
   estValue: z.number().min(0),
   estRetail: z.number().min(0).optional(),
@@ -54,8 +54,14 @@ export const ScenarioSchema = z.object({
   discountRate: z.number().min(0).max(30),
 });
 
+export const MarketRateSchema = z.object({
+  typicalApr: z.number().min(0).max(40),
+  note: z.string().max(400),
+});
+
 export const ScoreInputSchema = z.object({
   profile: ProfileSchema,
   vehicle: VehicleSchema,
   scenario: ScenarioSchema,
+  market: MarketRateSchema.nullable().optional(),
 });

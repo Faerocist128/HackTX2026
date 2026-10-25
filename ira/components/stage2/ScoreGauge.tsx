@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { BAND_COPY, displayLabel, VERDICT_COPY } from "@/lib/scoring/bands";
-import type { Band, Verdict } from "@/lib/scoring/types";
+import { BAND_COLORS, displayLabel, SCALE_COPY } from "@/lib/scoring/bands";
+import type { Band, ScaleKey, Verdict } from "@/lib/scoring/types";
 
 // Semicircle dial: 1 at the left, 100 at the right. Segments match the bands.
 const CX = 130, CY = 130, R = 104, W = 22;
@@ -20,7 +20,10 @@ const SEGMENTS: { band: Band; from: number; to: number }[] = [
 ];
 const CONFETTI = ["#EB0A1E", "#137A3A", "#FFB547", "#1F5FD1", "#5BD68A"];
 
-export function ScoreGauge({ score, band, verdict, preview }: { score: number; band: Band; verdict: Verdict; preview?: number | null }) {
+/** One dial per scale. Compact mode fits two side by side in the sticky score panel. */
+export function ScoreGauge({ scale, score, band, verdict, preview, compact }: {
+  scale: ScaleKey; score: number; band: Band; verdict: Verdict; preview?: number | null; compact?: boolean;
+}) {
   const [shown, setShown] = useState(score);
   const [pulse, setPulse] = useState(false);
   const [confetti, setConfetti] = useState(false);
@@ -50,25 +53,29 @@ export function ScoreGauge({ score, band, verdict, preview }: { score: number; b
   useEffect(() => {
     if (mounted.current && prevBand.current !== band) {
       setPulse(true);
-      if (band === "green" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setConfetti(true);
+      if (scale === "worth" && band === "green" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setConfetti(true);
       const t = setTimeout(() => { setPulse(false); setConfetti(false); }, 1300);
       prevBand.current = band;
       return () => clearTimeout(t);
     }
     prevBand.current = band;
     mounted.current = true;
-  }, [band]);
+  }, [band, scale]);
 
-  const copy = BAND_COPY[band];
+  const copy = BAND_COLORS[band];
+  const meta = SCALE_COPY[scale];
+  const label = displayLabel(scale, band, verdict);
+  const headingId = `score-h-${scale}`;
   const angle = -90 + (Math.max(1, Math.min(100, score)) / 100) * 180;
 
   return (
-    <section className="card p-6 relative overflow-hidden" aria-labelledby="score-h">
-      <h2 id="score-h" className="text-[22px] font-bold">Your score</h2>
-      <div className={`relative mx-auto mt-2 w-full max-w-[300px] ${pulse ? "pulse" : ""}`}>
+    <section className={`card ${compact ? "p-4" : "p-6"} relative overflow-hidden`} aria-labelledby={headingId}>
+      <h2 id={headingId} className={`${compact ? "text-[17px]" : "text-[22px]"} font-bold`}>{meta.title}</h2>
+      <p className="hint">{meta.question}</p>
+      <div className={`relative mx-auto mt-2 w-full ${compact ? "max-w-[180px]" : "max-w-[300px]"} ${pulse ? "pulse" : ""}`}>
         <svg viewBox="0 0 260 150" className="w-full" aria-hidden>
           {SEGMENTS.map((s) => (
-            <path key={s.band} d={arc(s.from, s.to)} fill="none" strokeWidth={W} stroke={s.band === band ? BAND_COPY[s.band].ink : BAND_COPY[s.band].soft} style={{ transition: "stroke 400ms ease" }} />
+            <path key={s.band} d={arc(s.from, s.to)} fill="none" strokeWidth={W} stroke={s.band === band ? BAND_COLORS[s.band].ink : BAND_COLORS[s.band].soft} style={{ transition: "stroke 400ms ease" }} />
           ))}
           {preview != null && preview > score && (
             <circle cx={pt(preview, R)[0]} cy={pt(preview, R)[1]} r="7" fill="var(--card)" stroke="var(--green)" strokeWidth="3" strokeDasharray="3 2" />
@@ -89,17 +96,16 @@ export function ScoreGauge({ score, band, verdict, preview }: { score: number; b
         )}
       </div>
       <div className="text-center -mt-2">
-        <div className="text-[64px] font-extrabold leading-none" style={{ color: copy.ink, transition: "color 400ms ease" }}>{Math.round(shown)}</div>
-        <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold" style={{ background: copy.soft, color: copy.ink }}>
+        <div className={`${compact ? "text-[44px]" : "text-[64px]"} font-extrabold leading-none`} style={{ color: copy.ink, transition: "color 400ms ease" }}>{Math.round(shown)}</div>
+        <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold ${compact ? "text-[13px]" : ""}`} style={{ background: copy.soft, color: copy.ink }}>
           <span aria-hidden>{band === "green" ? "✓" : band === "yellow" ? "!" : "→"}</span>
-          {displayLabel(band, verdict)}
+          {label}
         </div>
-        <p className="hint mt-3">Lender view: <span className="font-semibold">{VERDICT_COPY[verdict].chip}</span></p>
         {preview != null && preview > score && (
-          <p className="mt-2 font-semibold" style={{ color: "var(--green)" }}>With your checked steps: {preview}</p>
+          <p className="mt-2 font-semibold text-[14px]" style={{ color: "var(--green)" }}>With your checked steps: {preview}</p>
         )}
       </div>
-      <p className="sr-only" aria-live="polite">Score {score} out of 100. {displayLabel(band, verdict)}.</p>
+      <p className="sr-only" aria-live="polite">{meta.title} {score} out of 100. {label}.</p>
     </section>
   );
 }

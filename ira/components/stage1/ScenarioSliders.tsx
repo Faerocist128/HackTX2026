@@ -4,9 +4,9 @@ import type { LenderChannel, LoanType, PaymentBehavior, Scenario, ScoreResult } 
 
 const TYPE_HELP: Record<LoanType, string> = {
   fixed: "Your rate and payment stay the same the whole loan.",
-  variable: "Starts lower but can rise later. Harder to plan around.",
+  variable: "Starts about 0.75 points lower but can rise later. Harder to plan around.",
   "cash-out": "Borrow $2,000 extra in cash. You'll owe more than you do now.",
-  "lease-buyout": "Use a loan to buy the car at the end of your lease.",
+  "lease-buyout": "Use a loan to buy the car at the end of your lease. Rates run a little higher.",
 };
 
 function Range(props: {
@@ -48,7 +48,7 @@ export function ScenarioSliders({ scenario, result, onChange, onReset }: {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="try-h" className="text-[22px] font-bold">Try it out</h2>
-          <p className="hint">Move the sliders. Your score updates as you go.</p>
+          <p className="hint">Move the sliders. Both scores and the chart update as you go.</p>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={onReset}>↺ Reset</button>
       </div>
@@ -58,9 +58,18 @@ export function ScenarioSliders({ scenario, result, onChange, onReset }: {
         <Range label="Interest rate (APR)" tip="The yearly cost of borrowing, shown as a percent of what you owe." value={scenario.targetApr} min={2} max={20} step={0.1}
           display={`${scenario.targetApr.toFixed(1)}%`} minLabel="2%" maxLabel="20%" band={[lo, hi]}
           bandLabel={`Rates you'll likely qualify for: ${lo.toFixed(1)}%–${hi.toFixed(1)}%`} onChange={(v) => onChange({ targetApr: Math.round(v * 10) / 10 })} />
-        {below && <p className="hint mt-1" role="status">Target is below what you&apos;d likely qualify for, so your score uses {result.metrics.creditedApr.toFixed(1)}%.</p>}
-        <Range label="Extra each month" tip="Money you choose to add on top of your payment. It pays the loan off sooner." value={scenario.extraMonthlyPayment} min={0} max={500} step={25}
-          display={`$${scenario.extraMonthlyPayment}/mo`} minLabel="$0" maxLabel="$500" onChange={(v) => onChange({ extraMonthlyPayment: v })} />
+        {below && (
+          <p className="mt-1 text-[14px] font-semibold" role="status" style={{ color: "var(--amber)" }}>
+            Your scores use {result.metrics.creditedApr.toFixed(1)}%, the best rate you&apos;d likely get. Lenders are unlikely to offer less.
+          </p>
+        )}
+        <Range label="Pay extra toward the loan each month (optional)" tip="An optional amount you choose to pay on top of the required payment. All of it goes to what you owe, so you finish sooner and pay less interest. Your required payment doesn't change." value={scenario.extraMonthlyPayment} min={0} max={500} step={25}
+          display={`+$${scenario.extraMonthlyPayment}/mo`} minLabel="$0" maxLabel="$500" onChange={(v) => onChange({ extraMonthlyPayment: v })} />
+        <p className="hint mt-1" role="status">
+          {scenario.extraMonthlyPayment > 0
+            ? <>Paying ${scenario.extraMonthlyPayment} more each month pays the loan off <span className="font-semibold">{result.metrics.extraMonthsSooner} months sooner</span> and saves about <span className="font-semibold">${Math.round(result.metrics.extraInterestSaved).toLocaleString("en-US")}</span> in interest.</>
+            : "Leave at $0 to see the loan as-is, or slide to see how paying a little extra shortens it."}
+        </p>
       </div>
       <div className="mt-7 grid gap-5 sm:grid-cols-2">
         <div>
@@ -86,9 +95,9 @@ export function ScenarioSliders({ scenario, result, onChange, onReset }: {
         <label className="block sm:col-span-2">
           <span className="label">Where you&apos;d refinance</span>
           <select className="field mt-2" value={scenario.channel} onChange={(e) => onChange({ channel: e.target.value as LenderChannel })}>
-            <option value="creditUnion">Credit union (usually lowest rates)</option>
+            <option value="creditUnion">Credit union (usually about 0.5 points lower)</option>
             <option value="bank">Bank</option>
-            <option value="financeCompany">Finance company</option>
+            <option value="financeCompany">Finance company (usually about 0.5 points higher)</option>
           </select>
         </label>
       </div>

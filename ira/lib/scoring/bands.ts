@@ -1,12 +1,25 @@
-import type { Band, Verdict } from "./types";
+import type { Band, ScaleKey, Verdict } from "./types";
 import { POLICY } from "./config";
 
-// One color scale everywhere: gauge, factor bars, badges. Red is Toyota red per the plan;
+// One color scale everywhere: gauges, factor bars, badges. Red is Toyota red per the plan;
 // amber and green are the design's tokens (see app/globals.css).
-export const BAND_COPY: Record<Band, { label: string; ink: string; soft: string }> = {
-  green: { label: "Good time to refinance", ink: "var(--green)", soft: "var(--greenSoft)" },
-  yellow: { label: "Almost there", ink: "var(--amber)", soft: "var(--amberSoft)" },
-  red: { label: "Not yet, here's your path", ink: "var(--redInk)", soft: "var(--redSoft)" },
+export const BAND_COLORS: Record<Band, { ink: string; soft: string }> = {
+  green: { ink: "var(--green)", soft: "var(--greenSoft)" },
+  yellow: { ink: "var(--amber)", soft: "var(--amberSoft)" },
+  red: { ink: "var(--redInk)", soft: "var(--redSoft)" },
+};
+
+export const SCALE_COPY: Record<ScaleKey, { title: string; question: string; bands: Record<Band, string> }> = {
+  odds: {
+    title: "Approval odds",
+    question: "How likely is a lender to say yes?",
+    bands: { green: "Likely to be approved", yellow: "Approval is possible", red: "Approval unlikely right now" },
+  },
+  worth: {
+    title: "Refinance value",
+    question: "Is refinancing worth it for you?",
+    bands: { green: "Worth refinancing", yellow: "Some savings", red: "Not worth it yet" },
+  },
 };
 
 export const bandOf = (score: number): Band =>
@@ -21,8 +34,8 @@ export const VERDICT_COPY: Record<Verdict, { chip: string; headline: string }> =
   notEligible: { chip: "Not eligible yet", headline: "Not yet, here's your path" },
 };
 
-/** Gauge label: "Keep your loan" overrides the band label when it applies. */
-export function displayLabel(band: Band, verdict: Verdict): string {
-  if (verdict === "keepCurrentLoan" && band === "green") return "Keep your loan";
-  return BAND_COPY[band].label;
+/** Gauge label. On the value scale, "Keep your loan" replaces the band label when it applies. */
+export function displayLabel(scale: ScaleKey, band: Band, verdict: Verdict): string {
+  if (scale === "worth" && verdict === "keepCurrentLoan") return "Your current loan already wins";
+  return SCALE_COPY[scale].bands[band];
 }

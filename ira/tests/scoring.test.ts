@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { scoreRefinance } from "@/lib/scoring/engine";
 import { balanceAfter, breakEvenMonths, payment, presentValue } from "@/lib/scoring/loanMath";
 import { estimateApr } from "@/lib/scoring/rateModel";
-import { defaultScenario, personaVehicle } from "@/lib/scoring/defaults";
-import { TOYOTA_DELTA, valueAt } from "@/lib/vehicle/value";
-import { fixtureProfile } from "@/lib/nessie/fixtures";
+import { applyScenarioPatch, defaultScenario, personaVehicle } from "@/lib/scoring/defaults";
+import { estimateValue, TOYOTA_DELTA, valueAt } from "@/lib/vehicle/value";
 import { PERSONAS } from "@/lib/nessie/personas";
+import { personaProfile } from "./personaProfile";
 import type { FinancialProfile, Scenario, ScoreInput, Vehicle } from "@/lib/scoring/types";
 
 const ASOF = new Date(2026, 9, 24);
@@ -64,7 +64,7 @@ function profileFrom(over: Partial<FinancialProfile> & { loan: FinancialProfile[
     creditScore: 701,
     estCreditTier: "prime",
     evidence: [],
-    source: "manual",
+    source: "nessie",
     ...over,
     currentAutoLoan: over.loan,
   };
@@ -104,13 +104,14 @@ describe("research verdicts (§8 S5, §9)", () => {
     expect(scoreRefinance(exampleB()).verdict).toBe("possible");
   });
 
-  it("a subsidized 3.99% captive rate says keep your loan, shown green", () => {
+  it("a subsidized 3.99% captive rate: keep your loan, good approval odds, low value", () => {
     const i = exampleA();
     i.profile.currentAutoLoan = { ...i.profile.currentAutoLoan, apr: 3.99, monthlyPayment: payment(42_000, 3.99, 72), subsidized: true };
     const r = scoreRefinance(i);
     expect(r.verdict).toBe("keepCurrentLoan");
     expect(r.approval).toBe("high");
-    expect(r.band).toBe("green");
+    expect(r.odds.band).toBe("green");
+    expect(r.worth.band).toBe("red");
   });
 
   it("knockouts: 2+ lates, LTV over 130%, old car", () => {
@@ -120,17 +121,34 @@ describe("research verdicts (§8 S5, §9)", () => {
     const r = scoreRefinance(i);
     expect(r.verdict).toBe("notEligible");
     expect(r.knockouts.length).toBeGreaterThanOrEqual(4);
+    expect(r.odds.band).toBe("red");
+  });
+
+  it("a knockout caps approval odds in the red band, so number, dial and label agree", () => {
+    const i = exampleA();
+    i.profile.latePayments12mo = 2; // one knockout, everything else strong
+    const r = scoreRefinance(i);
+    expect(r.knockouts).toHaveLength(1);
+    expect(r.odds.score).toBe(39);
+    expect(r.odds.band).toBe("red");
+    expect(r.odds.uncappedScore).toBeGreaterThan(39);
+    expect(r.odds.uncappedScore).toBe(Math.round(r.odds.factors.reduce((s, f) => s + f.points, 0)));
+    expect(scoreRefinance(exampleA()).odds.uncappedScore).toBeUndefined();
   });
 });
 
 // ── Score properties ──────────────────────────────────────────────────────────
+const scales = (r: ReturnType<typeof scoreRefinance>) => [r.odds, r.worth];
+const withScenario = (i: ScoreInput, patch: Partial<Scenario>): ScoreInput => ({ ...i, scenario: { ...i.scenario, ...patch } });
+
 describe("score properties", () => {
-  it("factor points sum to the score and weights to 100", () => {
+  it("factor points sum to each score and weights to 100", () => {
     for (const i of [exampleA(), exampleB()]) {
-      const r = scoreRefinance(i);
-      const sum = r.factors.reduce((s, f) => s + f.points, 0);
-      expect(Math.round(sum)).toBe(r.score);
-      expect(r.factors.reduce((s, f) => s + f.maxPoints, 0)).toBe(100);
+      for (const sc of scales(scoreRefinance(i))) {
+        const sum = sc.factors.reduce((s, f) => s + f.points, 0);
+        expect(Math.round(sum)).toBe(sc.score);
+        expect(sc.factors.reduce((s, f) => s + f.maxPoints, 0)).toBe(100);
+      }
     }
   });
 
@@ -138,59 +156,157 @@ describe("score properties", () => {
     expect(scoreRefinance(exampleA())).toEqual(scoreRefinance(exampleA()));
   });
 
-  it("lower target APR never lowers the score", () => {
+  it("lower target APR never lowers either score", () => {
     for (const base of [exampleA(), exampleB()]) {
-      let prev = -1;
+      let prev = [-1, -1];
       for (let apr = 20; apr >= 2; apr -= 0.25) {
-        const s = scoreRefinance({ ...base, scenario: { ...base.scenario, targetApr: apr } }).score;
-        expect(s).toBeGreaterThanOrEqual(prev);
-        prev = s;
+        const r = scoreRefinance(withScenario(base, { targetApr: apr }));
+        expect(r.odds.score).toBeGreaterThanOrEqual(prev[0]);
+        expect(r.worth.score).toBeGreaterThanOrEqual(prev[1]);
+        prev = [r.odds.score, r.worth.score];
       }
     }
   });
 
-  it("higher LTV never raises the score", () => {
+  it("higher LTV never raises either score", () => {
     for (const base of [exampleA(), exampleB()]) {
-      let prev = 101;
+      let prev = [101, 101];
       const payoff = scoreRefinance(base).metrics.payoff;
       for (let ltv = 0.5; ltv <= 1.6; ltv += 0.02) {
-        const s = scoreRefinance({ ...base, vehicle: { ...base.vehicle, estValue: payoff / ltv } }).score;
-        expect(s).toBeLessThanOrEqual(prev);
-        prev = s;
+        const r = scoreRefinance({ ...base, vehicle: { ...base.vehicle, estValue: payoff / ltv } });
+        expect(r.odds.score).toBeLessThanOrEqual(prev[0]);
+        expect(r.worth.score).toBeLessThanOrEqual(prev[1]);
+        prev = [r.odds.score, r.worth.score];
       }
     }
   });
 
-  it("more extra payment never lowers the score", () => {
+  it("more extra payment never lowers the value score, and saves interest", () => {
     const base = exampleA();
     let prev = -1;
     for (let x = 0; x <= 500; x += 25) {
-      const s = scoreRefinance({ ...base, scenario: { ...base.scenario, extraMonthlyPayment: x } }).score;
-      expect(s).toBeGreaterThanOrEqual(prev);
-      prev = s;
+      const r = scoreRefinance(withScenario(base, { extraMonthlyPayment: x }));
+      expect(r.worth.score).toBeGreaterThanOrEqual(prev);
+      prev = r.worth.score;
     }
+    const r = scoreRefinance(withScenario(base, { extraMonthlyPayment: 200 }));
+    expect(r.metrics.extraInterestSaved).toBeGreaterThan(1_000);
+    expect(r.metrics.extraMonthsSooner).toBeGreaterThan(5);
   });
 
-  it("score stays within 1–100", () => {
+  it("comparison card adds up: overall savings = interest today − interest new − fees", () => {
+    for (const i of [exampleA(), exampleB()])
+      for (const patch of [{}, { termMonths: 84 }, { paymentBehavior: "late" as const }, { loanType: "cash-out" as const }, { extraMonthlyPayment: 200 }]) {
+        const m = scoreRefinance(withScenario(i, patch)).metrics;
+        expect(m.lifetimeInterestDelta).toBeCloseTo(m.currentInterestLeft - m.newTotalInterest - m.newFees, 6);
+        expect(m.currentMonthsLeft).toBe(i.profile.currentAutoLoan.monthsRemaining);
+      }
+  });
+
+  it("scores stay within 1–100", () => {
     const i = exampleA();
     i.profile.latePayments12mo = 5;
     i.profile.monthlyIncome = 500;
     i.vehicle.estValue = 1_000;
-    const r = scoreRefinance(i);
-    expect(r.score).toBeGreaterThanOrEqual(1);
-    expect(r.score).toBeLessThanOrEqual(100);
+    for (const sc of scales(scoreRefinance(i))) {
+      expect(sc.score).toBeGreaterThanOrEqual(1);
+      expect(sc.score).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+// ── Every control on the audit page moves a score ─────────────────────────────
+describe("sliders and controls move the scores", () => {
+  const inputs = () =>
+    PERSONAS.slice(0, 2).map((p) => {
+      const profile = personaProfile(p.id, ASOF);
+      const vehicle = personaVehicle(p, ASOF);
+      const r0 = scoreRefinance({ profile, vehicle, scenario: defaultScenario(profile), asOf: ASOF });
+      return { name: p.first, input: { profile, vehicle, scenario: defaultScenario(profile, r0.metrics.likelyApr), asOf: ASOF } as ScoreInput };
+    });
+  const moved = (a: ScoreInput, b: ScoreInput) => {
+    const x = scoreRefinance(a), y = scoreRefinance(b);
+    return x.odds.score !== y.odds.score || x.worth.score !== y.worth.score;
+  };
+  const cases: [string, (i: ScoreInput) => Partial<Scenario>][] = [
+    ["loan length 36 → 72", () => ({ termMonths: 36 })],
+    ["loan length 72", () => ({ termMonths: 72 })],
+    ["loan length 84", () => ({ termMonths: 84 })],
+    ["APR +1.5 within range", (i) => ({ targetApr: i.scenario.targetApr + 1.5 })],
+    ["extra $150/mo", () => ({ extraMonthlyPayment: 150 })],
+    ["pay late", () => ({ paymentBehavior: "late" })],
+    ["variable rate", () => ({ loanType: "variable" })],
+    ["cash-out", () => ({ loanType: "cash-out" })],
+    ["finance company", () => ({ channel: "financeCompany" })],
+  ];
+  for (const { name, input } of inputs())
+    for (const [label, patch] of cases)
+      it(`${name}: ${label}`, () => expect(moved(input, { ...input, scenario: applyScenarioPatch(input, patch(input)) })).toBe(true));
+
+  it("paying early helps a borrower with a late payment, and trims interest for everyone", () => {
+    const [rachel, alex] = inputs().map((x) => x.input);
+    expect(moved(alex, withScenario(alex, { paymentBehavior: "early" }))).toBe(true);
+    const early = scoreRefinance(withScenario(rachel, { paymentBehavior: "early" })).metrics.newTotalInterest;
+    expect(early).toBeLessThan(scoreRefinance(rachel).metrics.newTotalInterest);
+  });
+
+  it("switching lender moves the target rate with the likely rate", () => {
+    const [rachel] = inputs().map((x) => x.input);
+    const s = applyScenarioPatch(rachel, { channel: "creditUnion" });
+    expect(s.targetApr).toBeCloseTo(rachel.scenario.targetApr - 0.5, 1);
+    expect(applyScenarioPatch(rachel, { targetApr: 7 }).targetApr).toBe(7);
+  });
+
+  it("each step of the loan-length slider changes a score", () => {
+    for (const { input } of inputs()) {
+      let changes = 0;
+      for (let t = 24; t < 84; t += 6) if (moved(withScenario(input, { termMonths: t }), withScenario(input, { termMonths: t + 6 }))) changes++;
+      expect(changes).toBeGreaterThanOrEqual(8);
+    }
+  });
+});
+
+// ── Valuation (§4 with the high-mileage fix) ──────────────────────────────────
+describe("car value", () => {
+  const camry = (mileage: number) =>
+    estimateValue({ make: "Toyota", model: "Camry", year: 2021, mileage, condition: "good" }, ASOF);
+
+  it("a 2021 Camry at 45k miles is worth a realistic amount", () => {
+    const v = camry(45_000);
+    expect(v.trade).toBeGreaterThan(13_000);
+    expect(v.trade).toBeLessThan(22_000);
+  });
+
+  it("a 900,000-mile car is worth salvage value only", () => {
+    expect(camry(900_000).trade).toBeLessThan(1_500);
+    expect(camry(900_000).trade).toBeGreaterThanOrEqual(500);
+  });
+
+  it("value never rises with mileage", () => {
+    let prev = Infinity;
+    for (let m = 0; m <= 500_000; m += 5_000) {
+      const v = camry(m).trade;
+      expect(v).toBeLessThanOrEqual(prev + 0.01);
+      prev = v;
+    }
+  });
+
+  it("250k miles is well under half the 45k-mile value", () => {
+    expect(camry(250_000).trade).toBeLessThan(camry(45_000).trade * 0.3);
   });
 });
 
 // ── Personas (plan: land in their target bands) ───────────────────────────────
 describe("demo personas", () => {
   for (const p of PERSONAS) {
-    it(`${p.first} lands in ${p.targetBand}`, () => {
-      const profile = fixtureProfile(p.id, ASOF)!;
+    it(`${p.first} lands in ${p.targetBand} on both scales`, () => {
+      const profile = personaProfile(p.id, ASOF);
       const vehicle = personaVehicle(p, ASOF);
       const r0 = scoreRefinance({ profile, vehicle, scenario: defaultScenario(profile), asOf: ASOF });
       const r = scoreRefinance({ profile, vehicle, scenario: defaultScenario(profile, r0.metrics.likelyApr), asOf: ASOF });
-      expect(r.band, JSON.stringify({ score: r.score, verdict: r.verdict, f: r.factors.map((f) => [f.key, f.points]) })).toBe(p.targetBand);
+      const why = JSON.stringify({ odds: r.odds.score, worth: r.worth.score, verdict: r.verdict });
+      expect(r.odds.band, why).toBe(p.targetBand);
+      expect(r.worth.band, why).toBe(p.targetBand);
     });
   }
 });

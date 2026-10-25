@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Footer, Header } from "@/components/chrome/Header";
+import { Header } from "@/components/chrome/Header";
 import { Tip } from "@/components/ui/Tip";
-import { manualProfile, type ManualInput } from "@/lib/manualProfile";
+import type { ManualInput } from "@/lib/nessie/personas";
 import { useAuditStore, useHydrated } from "@/lib/store";
 import type { CreditTier, FinancialProfile } from "@/lib/scoring/types";
 
@@ -13,19 +13,33 @@ const usd = (x: number) => `$${Math.round(x).toLocaleString("en-US")}`;
 export default function MoneyPage() {
   const router = useRouter();
   const hydrated = useHydrated();
-  const { profile, personaId, setProfile } = useAuditStore();
+  const { profile, personaId, manualInput, setProfile } = useAuditStore();
   const [personas, setPersonas] = useState<PersonaRow[] | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [own, setOwn] = useState(false);
   const [form, setForm] = useState({ firstName: "", income: "", debts: "", balance: "", apr: "", months: "48", credit: "prime" as CreditTier, lates: "0" });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile").then((r) => r.json()).then(setPersonas).catch(() => setError("We couldn't load the demo people. Try refreshing."));
   }, []);
+  // Editing your own info: open the form filled in with what you typed last time.
   useEffect(() => {
-    if (hydrated && personaId === null && profile?.source === "manual") setOwn(true);
-  }, [hydrated, personaId, profile]);
+    if (!hydrated || personaId !== "manual") return;
+    setOwn(true);
+    if (manualInput)
+      setForm({
+        firstName: manualInput.firstName,
+        income: String(manualInput.monthlyIncome),
+        debts: String(manualInput.monthlyDebts),
+        balance: String(manualInput.balance),
+        apr: manualInput.apr === null ? "" : String(manualInput.apr),
+        months: String(manualInput.monthsLeft),
+        credit: manualInput.credit,
+        lates: String(manualInput.lates),
+      });
+  }, [hydrated, personaId, manualInput]);
 
   async function pick(id: string) {
     setOwn(false);
@@ -33,10 +47,11 @@ export default function MoneyPage() {
     setLoading(id);
     try {
       const res = await fetch(`/api/profile?persona=${id}`);
-      if (!res.ok) throw new Error();
-      setProfile((await res.json()) as FinancialProfile, id);
-    } catch {
-      setError("We couldn't load that profile. Try again.");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setProfile(json as FinancialProfile, id);
+    } catch (e) {
+      setError((e as Error).message || "We couldn't load that profile from Nessie. Try again.");
     } finally {
       setLoading(null);
     }
@@ -44,7 +59,7 @@ export default function MoneyPage() {
 
   const n = (s: string) => Number(s.replace(/[$,\s]/g, ""));
   const manualValid = n(form.income) > 0 && n(form.balance) > 0 && n(form.months) > 0 && !Number.isNaN(n(form.debts) || 0);
-  function next() {
+  async function next() {
     if (own) {
       const m: ManualInput = {
         firstName: form.firstName.trim(),
@@ -56,20 +71,35 @@ export default function MoneyPage() {
         credit: form.credit,
         lates: Number(form.lates),
       };
-      setProfile(manualProfile(m), null);
+      // Unchanged since the last save: reuse the Nessie customer instead of creating another.
+      if (!(personaId === "manual" && profile && JSON.stringify(m) === JSON.stringify(manualInput))) {
+        setSaving(true);
+        setError(null);
+        try {
+          const res = await fetch("/api/profile/manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(m) });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error);
+          setProfile(json as FinancialProfile, "manual", m);
+        } catch (e) {
+          setError((e as Error).message || "We couldn't save your info to Nessie. Try again.");
+          return;
+        } finally {
+          setSaving(false);
+        }
+      }
     }
     router.push("/setup/car");
   }
 
-  const sel = hydrated && !own ? profile : null;
-  const canNext = own ? manualValid : !!sel;
+  const sel = hydrated && !own && personaId !== "manual" ? profile : null;
+  const canNext = (own ? manualValid : !!sel) && !saving;
 
   return (
     <>
       <Header step={1} />
       <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10">
         <h1 className="text-[34px] sm:text-[40px] font-extrabold">Your money</h1>
-        <p className="mt-2 max-w-[520px]" style={{ color: "var(--ink2)" }}>Pick a demo person to explore, or use your own info. This doesn&apos;t check your credit.</p>
+        <p className="mt-2 max-w-[560px]" style={{ color: "var(--ink2)" }}>Pick a demo person to explore, or use your own info. Everything is loaded from and saved to Capital One&apos;s Nessie API. This doesn&apos;t check your credit.</p>
 
         <div className="mt-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Choose a profile">
           {(personas ?? Array.from({ length: 3 }, (_, i) => ({ id: `s${i}`, name: "", first: "", blurb: "" }))).map((p) => {
@@ -111,7 +141,7 @@ export default function MoneyPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[22px] font-bold">Here&apos;s what we see for {sel.name.split(" ")[0]}</h2>
               <span className="text-[13px] font-bold px-3 py-1 rounded-full" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>
-                ✓ Profile loaded{sel.source === "nessie" ? " from Nessie" : sel.source === "fixture" ? " (offline demo data)" : ""}
+                ✓ Loaded from Capital One Nessie
               </span>
             </div>
             <dl className="mt-5 grid gap-4 grid-cols-2 lg:grid-cols-5">
@@ -130,7 +160,7 @@ export default function MoneyPage() {
         {own && (
           <section className="card p-6 mt-8 rise">
             <h2 className="text-[22px] font-bold">Tell us a little about your money</h2>
-            <p className="hint mt-1">Rough numbers are fine. You can change them later.</p>
+            <p className="hint mt-1">Rough numbers are fine. You can change them later. We save them to Nessie as a demo bank customer.</p>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="First name (optional)" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
               <Field label="Money coming in each month" prefix="$" value={form.income} onChange={(v) => setForm({ ...form, income: v })} inputMode="decimal" hint="Before taxes." />
@@ -163,10 +193,9 @@ export default function MoneyPage() {
 
         <div className="mt-8 flex justify-between gap-4">
           <button className="btn btn-ghost" onClick={() => router.push("/")}>Back</button>
-          <button className="btn btn-primary" disabled={!canNext} onClick={next}>Next: Your car <span aria-hidden>→</span></button>
+          <button className="btn btn-primary" disabled={!canNext} onClick={next}>{saving ? "Saving to Nessie…" : <>Next: Your car <span aria-hidden>→</span></>}</button>
         </div>
       </main>
-      <Footer />
     </>
   );
 }

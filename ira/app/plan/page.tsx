@@ -50,7 +50,7 @@ export default function PlanPage() {
       <PageBand eyebrow="Step 5 of 5" title="Your plan" width="max-w-[1100px]">
         {VERDICT_COPY[result.verdict].headline}. Each step is priced by re-running your scores with that change.
       </PageBand>
-      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-8 sm:py-10 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
+      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-8 sm:py-10 grid grid-cols-1 gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
         <div className="min-w-0">
           <ActionPlan steps={steps} ready={ready} strong={result.verdict === "wellPositioned"} checked={checkedSteps} onToggle={toggleStep} />
         </div>

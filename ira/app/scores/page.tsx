@@ -39,7 +39,7 @@ export default function ScoresPage() {
       <Header step={4} />
       <PageBand eyebrow="Step 4 of 5" title="Your scores">What&apos;s behind each score, for the loan you set up on the last page.</PageBand>
       <main className="mx-auto w-full max-w-[1248px] px-4 sm:px-8 py-8 sm:py-10">
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] items-start">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.1fr] items-start">
           <div className="space-y-6 min-w-0 lg:sticky lg:top-24">
             <div className="grid gap-4 sm:grid-cols-2">
               <ScoreGauge scale="odds" score={result.odds.score} band={result.odds.band} verdict={result.verdict} compact />

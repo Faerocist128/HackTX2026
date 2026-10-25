@@ -168,7 +168,7 @@ export default function CarPage() {
           </div>
         </section>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
         <div>
           <section className="card p-6">
             <h2 className="text-[19px] font-semibold">Which car is it?</h2>

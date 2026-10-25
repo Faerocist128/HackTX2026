@@ -1,5 +1,8 @@
+"use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { brand } from "@/lib/brand";
+import { Logo } from "./Logo";
 
 const STEPS = [
   { label: "Your money", href: "/setup/money" },
@@ -9,56 +12,94 @@ const STEPS = [
   { label: "Your plan", href: "/plan" },
 ];
 
-function Logo() {
+function MenuIcon() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 font-extrabold text-[19px] tracking-wide no-underline" style={{ color: "var(--ink)" }}>
-      <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden>
-        <path d="M2 12a9 9 0 0 1 18 0" fill="none" stroke="var(--brand)" strokeWidth="2.6" strokeLinecap="round" />
-        <path d="M11 12 15.5 5.5" stroke="var(--ink)" strokeWidth="2.2" strokeLinecap="round" />
-      </svg>
-      {brand.product}
-      {brand.owner && <span className="hint font-semibold">by {brand.owner}</span>}
-    </Link>
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="currentColor">
+      <rect x="0" y="0" width="6" height="6" rx="1" /><rect x="8" y="0" width="6" height="6" rx="1" />
+      <rect x="0" y="8" width="6" height="6" rx="1" /><rect x="8" y="8" width="6" height="6" rx="1" />
+    </svg>
   );
 }
 
-/** step: 1-based index of the current step; 0 hides the stepper (landing). Done steps link back. */
+/** One step link: done steps link back, the current one is black with a red underline, future ones are dimmed. */
+function StepLink({ label, href, n, step, onNavigate }: { label: string; href: string; n: number; step: number; onNavigate?: () => void }) {
+  const done = step > 0 && n < step;
+  const current = n === step;
+  const base = "relative inline-flex items-center h-full text-[16px] font-semibold no-underline whitespace-nowrap";
+  if (current) {
+    return (
+      <span aria-current="step" className={base} style={{ color: "var(--ink)" }}>
+        {label}
+        <span className="absolute left-0 right-0 bottom-0 h-[3px]" style={{ background: "var(--brand)" }} aria-hidden />
+      </span>
+    );
+  }
+  if (done || step === 0) {
+    return (
+      <Link href={href} onClick={onNavigate} className={`${base} hover:!text-[var(--ink)]`} style={{ color: "var(--ink2)" }}>
+        {label}{done && <span className="sr-only">, done</span>}
+      </Link>
+    );
+  }
+  return <span className={base} style={{ color: "var(--muted)", opacity: 0.7 }}>{label}</span>;
+}
+
+/**
+ * toyota.com-style bar: white, 64px, logo left, text links, actions right.
+ * step: 1-based index of the current step; 0 is the landing page (all steps link).
+ */
 export function Header({ step = 0, right }: { step?: number; right?: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const progress = step > 0 ? Math.min(step, STEPS.length) / STEPS.length : 0;
+
   return (
-    <header style={{ background: "var(--card)", borderBottom: "1px solid var(--line)" }}>
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-10 pt-4 pb-3">
-        <div className="flex items-center justify-between gap-4">
-          <Logo />
-          {step > 0 ? <span className="hint">Step {Math.min(step, STEPS.length)} of {STEPS.length}</span> : right}
+    <header className="sticky top-0 z-40" style={{ background: "var(--card)", borderBottom: brand.tfs ? "2px solid var(--brand)" : "1px solid var(--line)" }}>
+      <div className="mx-auto max-w-[1248px] px-4 sm:px-8 h-16 flex items-center gap-6 lg:gap-12">
+        <Logo />
+        <nav aria-label="Audit steps" className="hidden lg:flex items-stretch gap-9 h-full">
+          {STEPS.map((s, i) => <StepLink key={s.href} {...s} n={i + 1} step={step} />)}
+        </nav>
+        <div className="ml-auto flex items-center gap-6">
+          {brand.navLinks.map((l) => (
+            <a key={l.href} href={l.href} className="hidden md:inline text-[15px] font-semibold no-underline" style={{ color: "var(--ink)" }}>{l.label}</a>
+          ))}
+          {step > 0 && <span className="hidden sm:inline text-[14px]" style={{ color: "var(--ink2)" }}>Step {Math.min(step, STEPS.length)} of {STEPS.length}</span>}
+          {right}
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="step-menu"
+            className="lg:hidden inline-flex items-center gap-2 h-10 px-1 border-0 bg-transparent text-[15px] font-semibold cursor-pointer" style={{ color: "var(--ink)" }}>
+            <MenuIcon /> Menu
+          </button>
         </div>
-        {step > 0 && (
-          <ol className="mt-4 grid grid-cols-5 gap-2 sm:gap-3" aria-label="Progress">
-            {STEPS.map(({ label, href }, i) => {
-              const n = i + 1;
-              const done = n < step;
-              const current = n === step;
-              const text = (
-                <>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--line)" }}>
-                    <div className="h-full rounded-full" style={{ width: done ? "100%" : current ? "60%" : "0%", background: "var(--brand)", transition: "width 500ms ease" }} />
-                  </div>
-                  <div className={`mt-2 text-[13px] ${current ? "font-bold" : ""}`} style={{ color: done || current ? "var(--ink)" : "var(--ink2)" }}>
-                    {done && <span aria-hidden style={{ color: "var(--green)" }}>✓ </span>}
-                    <span className="hidden sm:inline">{label}</span>
-                    <span className="sm:hidden">{label.replace("Your ", "").replace("Try it out", "Try")}</span>
-                    {done && <span className="sr-only">, done</span>}
-                  </div>
-                </>
-              );
-              return (
-                <li key={label} aria-current={current ? "step" : undefined}>
-                  {done ? <Link href={href} className="block no-underline hover:opacity-80" title={`Back to ${label.toLowerCase()}`}>{text}</Link> : text}
-                </li>
-              );
-            })}
-          </ol>
-        )}
       </div>
+      {step > 0 && (
+        <div className="lg:hidden h-[3px]" style={{ background: "var(--line)" }} aria-hidden>
+          <div className="h-full" style={{ width: `${progress * 100}%`, background: "var(--brand)", transition: "width 500ms ease" }} />
+        </div>
+      )}
+      {open && (
+        <nav id="step-menu" aria-label="Audit steps" className="lg:hidden absolute inset-x-0 top-full" style={{ background: "var(--card)", borderBottom: "1px solid var(--line)", boxShadow: "var(--shadow)" }}>
+          <ol className="mx-auto max-w-[1248px] px-4 sm:px-8 py-2">
+            {STEPS.map((s, i) => (
+              <li key={s.href} className="h-12 flex items-center" style={{ borderTop: i ? "1px solid var(--line)" : undefined }}>
+                <span className="w-7 text-[14px] tabular-nums" style={{ color: "var(--muted)" }}>{i + 1}</span>
+                <StepLink {...s} n={i + 1} step={step} onNavigate={() => setOpen(false)} />
+              </li>
+            ))}
+            {brand.navLinks.map((l) => (
+              <li key={l.href} className="h-12 flex items-center md:hidden" style={{ borderTop: "1px solid var(--line)" }}>
+                <a href={l.href} className="text-[16px] font-semibold no-underline">{l.label}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
     </header>
   );
 }

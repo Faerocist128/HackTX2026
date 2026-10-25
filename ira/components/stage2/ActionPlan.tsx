@@ -9,16 +9,28 @@ const GREEN_TIPS = [
 ];
 
 /** Engine-priced next steps. `steps` already carry the AI's wording when it's ready. */
-export function ActionPlan({ steps, ready, checked, onToggle }: {
-  steps: AdviceStep[]; ready: boolean; checked: string[]; onToggle: (id: string) => void;
+/**
+ * ready: both scores are green. strong: the research verdict is also "well positioned".
+ * The banner follows the verdict so it never contradicts the page headline.
+ */
+export function ActionPlan({ steps, ready, strong, checked, onToggle }: {
+  steps: AdviceStep[]; ready: boolean; strong: boolean; checked: string[]; onToggle: (id: string) => void;
 }) {
   return (
     <section id="plan" aria-labelledby="plan-h">
-      <h2 id="plan-h" className="text-[22px] font-bold px-1">Your next steps</h2>
+      <h2 id="plan-h" className="text-[22px] font-semibold px-1">Your next steps</h2>
       {ready && (
         <div className="card p-6 mt-3">
-          <p className="font-bold">You&apos;re in great shape. Here&apos;s how to lock in the best rate.</p>
-          <ul className="mt-3 space-y-2">{GREEN_TIPS.map((t) => <li key={t} className="flex gap-2"><span style={{ color: "var(--green)" }} aria-hidden>✓</span>{t}</li>)}</ul>
+          <p className="font-bold">
+            {strong
+              ? <>You&apos;re in great shape. Here&apos;s how to lock in the best rate.</>
+              : <>Your scores are strong. Get real quotes to confirm the rate before you switch.</>}
+          </p>
+          <ol className="mt-3 space-y-2">
+            {GREEN_TIPS.map((t, i) => (
+              <li key={t} className="flex gap-3"><span className="font-bold tabular-nums" style={{ color: "var(--redInk)" }}>{i + 1}</span>{t}</li>
+            ))}
+          </ol>
         </div>
       )}
       {steps.length > 0 && <p className="hint mt-2 px-1">Check the steps you plan to take to see how much each would raise your scores.</p>}
@@ -26,7 +38,7 @@ export function ActionPlan({ steps, ready, checked, onToggle }: {
         {steps.map((s, i) => {
           const on = checked.includes(s.id);
           return (
-            <li key={s.id} className="card step p-5 rise" style={{ animationDelay: `${i * 50}ms`, boxShadow: on ? "inset 0 0 0 2px var(--green), var(--shadow)" : undefined }}>
+            <li key={s.id} className="card step p-5 rise" style={{ animationDelay: `${i * 50}ms`, boxShadow: on ? "inset 0 0 0 2px var(--green)" : undefined }}>
               <label className="flex gap-4 cursor-pointer">
                 <input type="checkbox" className="sr-only" checked={on} onChange={() => onToggle(s.id)} />
                 <span className="cbox" style={{ background: on ? "var(--green)" : "transparent", boxShadow: on ? "none" : "inset 0 0 0 2px var(--ink2)" }} aria-hidden>
@@ -38,6 +50,8 @@ export function ActionPlan({ steps, ready, checked, onToggle }: {
                     <span className="shrink-0 text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>{s.impact}</span>
                   </span>
                   <span className="block mt-1" style={{ color: "var(--ink2)" }}>{s.why}</span>
+                  <span className="block mt-2 hint"><span className="font-semibold">From your Nessie data:</span> {s.nessieEvidence}</span>
+                  <span className="block hint"><span className="font-semibold">How long:</span> {s.timeframe}</span>
                   <span className="block mt-2 hint">ⓘ From your bank data: {s.nessieEvidence}</span>
                   <span className="block hint">◷ {s.timeframe}</span>
                 </span>

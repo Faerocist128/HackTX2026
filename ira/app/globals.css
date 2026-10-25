@@ -1,9 +1,22 @@
 @import "tailwindcss";
 
-/* Tokens copied from the Claude Design artifact ("Refinance Audit"). */
+/* Tokens follow toyota.com / toyotafinancial.com (researched Oct 2026):
+   white pages, black ink, #58595B secondary text, #EB0A1E red, warm and gray bands. */
 :root {
-  --bg: #f5f5f6;
+  --bg: #ffffff;
+  --surface: #f6f6f6;   /* light gray band (Toyota "Shopping Tools" panel) */
+  --warm: #eae7e3;      /* warm beige band */
+  --night: #1e1e1e;     /* dark band / footer CTA */
   --card: #ffffff;
+  --ink: #000000;
+  --ink2: #58595b;      /* nav links, secondary copy: 7:1 on white */
+  --muted: #767676;     /* captions, disclaimers: 4.5:1 on white */
+  --line: #d8d8d8;
+  --lineStrong: #767676; /* control boundaries: >=3:1 (WCAG 1.4.11) */
+  --chip: #f6f6f6;
+  --brand: #eb0a1e;     /* Toyota red */
+  --brandHover: #cc0000;
+  --redInk: #cc0000;
   --ink: #15171c;
   --ink2: #4a4f59;
   --line: #e2e4e8;
@@ -18,9 +31,31 @@
   --green: #137a3a;
   --greenSoft: #e6f4ec;
   --focus: #1f5fd1;
-  --shadow: 0 1px 2px rgba(17, 20, 28, 0.06), 0 10px 28px rgba(17, 20, 28, 0.07);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   color-scheme: light;
 }
+/* Toyota's sites are light-only, so dark is opt-in: <html data-theme="dark">. */
+:root[data-theme="dark"] {
+  --bg: #0f0f10;
+  --surface: #18181a;
+  --warm: #1f1d1b;
+  --night: #000000;
+  --card: #1c1c1e;
+  --ink: #ffffff;
+  --ink2: #c4c5c7;
+  --muted: #9a9a9a;
+  --line: #333336;
+  --lineStrong: #8a8a8e;
+  --chip: #242426;
+  --redInk: #ff6b76;
+  --redSoft: #3a1418;
+  --amber: #ffb547;
+  --amberSoft: #3a2a10;
+  --green: #5bd68a;
+  --greenSoft: #12301e;
+  --focus: #7aa7ff;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1013;
@@ -44,32 +79,76 @@
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-warm: var(--warm);
+  --color-night: var(--night);
   --color-card: var(--card);
   --color-ink: var(--ink);
   --color-ink2: var(--ink2);
+  --color-muted: var(--muted);
   --color-line: var(--line);
   --color-chip: var(--chip);
   --color-brand: var(--brand);
   --color-green: var(--green);
   --color-amber: var(--amber);
   --color-redink: var(--redInk);
-  --font-sans: var(--font-figtree), system-ui, -apple-system, "Segoe UI", sans-serif;
-  --radius-card: 20px;
+  --font-sans: var(--font-source), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --radius-card: 8px;
 }
 
 html, body { background: var(--bg); color: var(--ink); }
 body { font-family: var(--font-sans); font-size: 16px; line-height: 1.5; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
-a { color: var(--redInk); }
-a:hover { color: var(--ink); }
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
+a { color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--redInk); }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 
-.card { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); }
+/* Type helpers (Toyota scale: 48 / 40 / 32 / 24) */
+.h-display { font-size: clamp(36px, 5vw, 52px); line-height: 1.08; font-weight: 600; letter-spacing: -0.02em; }
+.h-section { font-size: clamp(30px, 4vw, 44px); line-height: 1.12; font-weight: 600; letter-spacing: -0.015em; }
+.h-page { font-size: clamp(30px, 3.6vw, 40px); line-height: 1.12; font-weight: 600; letter-spacing: -0.015em; }
+.eyebrow { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 24px; border-radius: 999px; border: 0; font: inherit; font-weight: 700; font-size: 17px; cursor: pointer; text-decoration: none; transition: transform 120ms ease, background-color 160ms ease, box-shadow 160ms ease; }
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Panels: 8px corners and a hairline edge (Toyota); .card-raised is the TFS soft card. */
+.card { background: var(--card); border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); }
+.card-raised { background: var(--card); border-radius: 8px; box-shadow: var(--shadow); }
+
+/* Page title band, like the deals page header */
+.page-band { background: var(--surface); border-bottom: 1px solid var(--line); }
+
+/* Buttons: full pills, no shadows. Black on light, white on dark, red for the main TFS action. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 28px; border-radius: 999px; border: 0; font: inherit; font-weight: 600; font-size: 16px; line-height: 1; cursor: pointer; text-decoration: none; white-space: nowrap; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-primary { background: var(--brand); color: #fff; }
 .btn-primary:hover { background: var(--brandHover); color: #fff; }
+.btn-dark { background: var(--ink); color: var(--bg); }
+.btn-dark:hover { background: var(--ink2); color: var(--bg); }
+.btn-light { background: #fff; color: #000; }
+.btn-light:hover { background: #e8e8e8; color: #000; }
+.btn-outline-light { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px #fff; }
+.btn-outline-light:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.btn-ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.btn-ghost:hover { color: var(--bg); background: var(--ink); }
+.btn-lg { min-height: 52px; padding: 0 32px; font-size: 17px; }
+.btn-sm { min-height: 36px; padding: 0 18px; font-size: 15px; }
+
+/* Segmented choice (small on/off choices) */
+.seg-group { display: flex; gap: 0; padding: 0; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--lineStrong); }
+.seg { flex: 1; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; background: transparent; color: var(--ink2); transition: background-color 180ms ease, color 180ms ease; }
+.seg:hover { color: var(--ink); }
+.seg[aria-pressed="true"], .seg[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+
+/* Underline tabs (Toyota "Explore All Vehicles" / model page tabs) */
+.tabs { display: flex; gap: 32px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tab { position: relative; padding: 12px 0; border: 0; background: none; font: inherit; font-size: 16px; font-weight: 400; color: var(--ink2); cursor: pointer; white-space: nowrap; text-decoration: none; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"], .tab[aria-pressed="true"], .tab[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.tab[aria-selected="true"]::after, .tab[aria-pressed="true"]::after, .tab[aria-current="page"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); }
+
+/* Fields: square-ish 4px corners, gray border, black on focus (Toyota zip-code input) */
+.field { width: 100%; min-height: 52px; padding: 0 16px; border-radius: 4px; border: 1px solid var(--lineStrong); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
+.field:focus { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); outline: none; }
+.label { font-weight: 600; font-size: 15px; }
 .btn-ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--lineStrong); }
 .btn-ghost:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink2); }
 .btn-sm { min-height: 40px; padding: 0 16px; font-size: 15px; }
@@ -83,9 +162,9 @@ a:hover { color: var(--ink); }
 .label { font-weight: 700; font-size: 15px; }
 .hint { color: var(--ink2); font-size: 14px; }
 
-/* Slider (design: red fill, white thumb with red ring, green "likely" band) */
+/* Slider: red fill, white thumb with a black ring (Toyota carousel controls), green "likely" band */
 .slider { position: relative; height: 44px; }
-.slider .track { position: absolute; left: 0; right: 0; top: 18px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.slider .track { position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
 .slider .done { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brand); border-radius: 4px; }
 .slider .band { position: absolute; top: 13px; height: 18px; border-radius: 9px; background: var(--greenSoft); box-shadow: inset 0 0 0 2px var(--green); }
 /* "Your loan today" tick on a track */
@@ -93,14 +172,15 @@ a:hover { color: var(--ink); }
 input.range { -webkit-appearance: none; appearance: none; position: relative; z-index: 2; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; }
 input.range::-webkit-slider-runnable-track { height: 8px; background: transparent; }
 input.range::-moz-range-track { height: 8px; background: transparent; }
-input.range::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; margin-top: -11px; border-radius: 50%; background: #fff; border: 3px solid var(--brand); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22); transition: transform 140ms ease; }
-input.range::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 3px solid var(--brand); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22); }
+input.range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 50%; background: #fff; border: 2px solid #000; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transition: transform 140ms ease; }
+input.range::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid #000; }
 input.range:active::-webkit-slider-thumb, input.range:focus-visible::-webkit-slider-thumb { transform: scale(1.18); }
 input.range:focus-visible { outline: none; }
-.slider:focus-within { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 12px; }
+.slider:focus-within { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 8px; }
 
 .tip { position: relative; display: inline-flex; }
 .tip button { width: 32px; height: 32px; margin: -6px -4px; border: 0; background: transparent; color: var(--ink2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 999px; }
+.tipbox { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: min(260px, calc(100vw - 24px)); padding: 10px 14px; border-radius: 4px; background: var(--ink); color: var(--card); font-size: 15px; line-height: 1.4; font-weight: 500; pointer-events: none; z-index: 20; animation: tip-in 160ms cubic-bezier(0.16, 1, 0.3, 1); }
 .tipbox { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: min(260px, calc(100vw - 24px)); padding: 10px 14px; border-radius: 12px; background: var(--ink); color: var(--card); font-size: 15px; line-height: 1.4; font-weight: 500; pointer-events: none; z-index: 20; animation: tip-in 160ms cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes tip-in { from { opacity: 0; transform: translate(-50%, 4px); } }
 
@@ -111,9 +191,9 @@ input.range:focus-visible { outline: none; }
 @keyframes confetti { 0% { transform: translate(0, 0) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
 .rise { animation: rise 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } }
-.shimmer { height: 16px; border-radius: 8px; background: linear-gradient(90deg, var(--chip) 0%, var(--line) 50%, var(--chip) 100%); background-size: 200% 100%; animation: shimmer 1.1s linear infinite; }
-@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-.cbox { width: 30px; height: 30px; flex: none; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; transition: background-color 200ms ease, box-shadow 200ms ease; }
+.shimmer { height: 16px; border-radius: 4px; background: var(--chip); animation: shimmer 1.4s ease-in-out infinite alternate; }
+@keyframes shimmer { to { opacity: 0.45; } }
+.cbox { width: 28px; height: 28px; flex: none; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; transition: background-color 200ms ease, box-shadow 200ms ease; }
 .sr-only:focus-visible + .cbox { outline: 3px solid var(--focus); outline-offset: 3px; }
 .tick { stroke-dasharray: 24; stroke-dashoffset: 24; animation: tick 320ms ease-out forwards; }
 @keyframes tick { to { stroke-dashoffset: 0; } }

@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { Header } from "@/components/chrome/Header";
+import { PageBand } from "@/components/chrome/PageBand";
 import { ActionPlan } from "@/components/stage2/ActionPlan";
 import { ScoreGauge } from "@/components/stage2/ScoreGauge";
 import { useAdvice } from "@/components/stage2/useAdvice";
@@ -30,32 +31,30 @@ export default function PlanPage() {
     [input, candidates, checkedSteps],
   );
   const { advice } = useAdvice(input);
+  // Headline and banner both come from the engine's verdict, so they always agree.
   const steps = useMemo(() => withAiWording(engineSteps(candidates), advice?.steps), [candidates, advice]);
 
   if (!hydrated || !input || !result) {
     return (
       <>
         <Header step={5} />
-        <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10" aria-busy><div className="card h-[360px] p-6"><div className="shimmer w-1/3" /></div></main>
+        <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-10" aria-busy><div className="card h-[360px] p-6"><div className="shimmer w-1/3" /></div></main>
       </>
     );
   }
 
-  const ready = result.odds.band === "green" && result.worth.band === "green";
+  const ready = result.odds.band === "green" && result.worth.band === "green" && (result.verdict === "wellPositioned" || result.verdict === "possible");
   return (
     <>
       <Header step={5} />
-      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-8 sm:py-10 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
+      <PageBand eyebrow="Step 5 of 5" title="Your plan" width="max-w-[1100px]">
+        {VERDICT_COPY[result.verdict].headline}. Each step is priced by re-running your scores with that change.
+      </PageBand>
+      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-8 sm:py-10 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
         <div className="min-w-0">
-          <h1 className="text-[32px] sm:text-[40px] font-extrabold leading-tight">Your plan</h1>
-          <p className="mt-1" style={{ color: "var(--ink2)" }}>
-            {advice?.verdict ?? VERDICT_COPY[result.verdict].headline}. Each step is priced by re-running your scores with that change.
-          </p>
-          <div className="mt-6">
-            <ActionPlan steps={steps} ready={ready} checked={checkedSteps} onToggle={toggleStep} />
-          </div>
+          <ActionPlan steps={steps} ready={ready} strong={result.verdict === "wellPositioned"} checked={checkedSteps} onToggle={toggleStep} />
         </div>
-        <aside className="space-y-4 lg:sticky lg:top-4">
+        <aside className="space-y-4 lg:sticky lg:top-24">
           <ScoreGauge scale="odds" score={result.odds.score} band={result.odds.band} verdict={result.verdict} preview={preview?.odds} />
           <ScoreGauge scale="worth" score={result.worth.score} band={result.worth.band} verdict={result.verdict} preview={preview?.worth} />
           <div className="flex justify-between gap-4">

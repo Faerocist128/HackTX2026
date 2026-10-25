@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/chrome/Header";
+import { PageBand } from "@/components/chrome/PageBand";
 import { useAuditStore, useHydrated, type CarDraft } from "@/lib/store";
 import type { Condition, MarketRate, Vehicle } from "@/lib/scoring/types";
 import { carSpecFor } from "@/lib/vehicle/models3d";
@@ -148,25 +149,24 @@ export default function CarPage() {
   return (
     <>
       <Header step={2} />
-      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10">
-        <h1 className="text-[34px] sm:text-[40px] font-extrabold">Your car</h1>
-        <p className="mt-2" style={{ color: "var(--ink2)" }}>We use this to estimate what your car is worth today.</p>
-
-        <section className="card mt-8 overflow-hidden relative" style={{ background: "radial-gradient(ellipse 70% 60% at 50% 62%, var(--card) 0%, var(--chip) 100%)" }}>
-          <div className="absolute top-5 left-6 z-10 pointer-events-none">
-            <div className="text-[22px] sm:text-[26px] font-extrabold">{shown ? `${shown.year} ${shown.make} ${shown.model}${shown.trim ? ` ${shown.trim}` : ""}` : "Your car"}</div>
-            <div className="hint">{shown ? stageSpec.label : "Pick your car below to see it here"}</div>
-          </div>
+      <PageBand eyebrow="Step 2 of 5" title="Your car" width="max-w-[1100px]">We use this to estimate what your car is worth today.</PageBand>
+      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-10">
+        {/* Dark stage with the name bottom-left, like a toyota.com model-page hero. */}
+        <section className="rounded-lg overflow-hidden relative text-white" style={{ background: "radial-gradient(110% 80% at 50% 25%, #3a3f47 0%, #1d2025 50%, #0b0b0c 100%)" }}>
           <CarStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />
+          <div className="absolute inset-x-0 bottom-0 z-10 pointer-events-none px-6 pb-5 pt-16" style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.7))" }}>
+            <div className="text-[26px] sm:text-[36px] font-semibold leading-tight">{shown ? `${shown.year} ${shown.make} ${shown.model}${shown.trim ? ` ${shown.trim}` : ""}` : "Your car"}</div>
+            <div className="text-[15px]" style={{ color: "rgba(255,255,255,0.8)" }}>{shown ? stageSpec.label : "Pick your car below to see it here"}</div>
+          </div>
         </section>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
         <div>
           <section className="card p-6">
-            <h2 className="text-[19px] font-bold">Which car is it?</h2>
-            <div className="seg-group mt-4 max-w-[440px]">
-              <button className="seg" aria-pressed={mode === "vin"} onClick={() => switchMode("vin")}>Use my VIN</button>
-              <button className="seg" aria-pressed={mode === "ymm"} onClick={() => switchMode("ymm")}>Choose year, make, model</button>
+            <h2 className="text-[19px] font-semibold">Which car is it?</h2>
+            <div className="tabs mt-3" role="group" aria-label="How to find your car">
+              <button className="tab" aria-pressed={mode === "vin"} onClick={() => switchMode("vin")}>Use my VIN</button>
+              <button className="tab" aria-pressed={mode === "ymm"} onClick={() => switchMode("ymm")}>Choose year, make, model</button>
             </div>
 
             {mode === "vin" ? (
@@ -227,7 +227,7 @@ export default function CarPage() {
               <p className="hint">Be honest. It only changes the estimate.</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup">
                 {CONDITIONS.map((c) => (
-                  <button key={c.id} role="radio" aria-checked={condition === c.id} onClick={() => edit(setCondition)(c.id)} className="text-left rounded-2xl p-4 transition-shadow" style={{ background: "var(--card)", boxShadow: condition === c.id ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--line)" }}>
+                  <button key={c.id} role="radio" aria-checked={condition === c.id} onClick={() => edit(setCondition)(c.id)} className="text-left rounded-lg p-4 transition-shadow" style={{ background: "var(--card)", boxShadow: condition === c.id ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--line)" }}>
                     <div className="font-bold">{c.label}</div>
                     <div className="hint">{c.desc}</div>
                   </button>
@@ -242,20 +242,20 @@ export default function CarPage() {
             {found ? (
               <div className="rise">
                 <p className="font-semibold" style={{ color: "var(--green)" }}>
-                  ✓ {source === "saved" ? "Your saved car" : source === "profile" ? "Your car from your profile" : mode === "vin" ? "We found your car from its VIN" : "Here's your car"}
+                  {source === "saved" ? "Your saved car" : source === "profile" ? "Your car from your profile" : mode === "vin" ? "We found your car from its VIN" : "Here's your car"}
                 </p>
-                <h2 className="mt-4 text-[24px] font-extrabold">{found.vehicle.year} {found.vehicle.make} {found.vehicle.model}{found.vehicle.trim ? ` ${found.vehicle.trim}` : ""}</h2>
+                <h2 className="mt-4 text-[24px] font-semibold">{found.vehicle.year} {found.vehicle.make} {found.vehicle.model}{found.vehicle.trim ? ` ${found.vehicle.trim}` : ""}</h2>
                 <p className="hint">{found.vehicle.mileage.toLocaleString()} miles · {CONDITIONS.find((c) => c.id === found.vehicle.condition)?.label} condition · {found.specs.segment}</p>
-                <div className="mt-5 rounded-2xl p-4" style={{ background: "var(--chip)" }}>
+                <div className="mt-5 rounded-lg p-4" style={{ background: "var(--chip)" }}>
                   <div className="hint">Estimated trade-in value</div>
-                  <div className={`text-[32px] font-extrabold ${busy ? "opacity-50" : ""}`}>{usd(found.vehicle.estValue)}</div>
+                  <div className={`text-[32px] font-bold ${busy ? "opacity-50" : ""}`}>{usd(found.vehicle.estValue)}</div>
                   <div className="hint">
                     Retail about {usd(found.vehicle.estRetail ?? 0)}. Lenders usually use the lower trade-in number. Based on a {usd(found.specs.baseMsrp)} price when new (Gemini) and{" "}
                     {found.specs.depreciationSource === "research" ? "researched" : "Gemini's"} depreciation for this model. This is an estimate.
                   </div>
                 </div>
                 {found.history.openRecalls.length > 0 && (
-                  <p className="mt-4 rounded-2xl p-3 text-[15px]" style={{ background: "var(--amberSoft)", color: "var(--amber)" }}>
+                  <p className="mt-4 rounded-lg p-3 text-[15px]" style={{ background: "var(--amberSoft)", color: "var(--amber)" }}>
                     Open recall: {found.history.openRecalls[0]}. It rarely blocks a refinance, but get it fixed. <span className="hint">({found.historySource})</span>
                   </p>
                 )}
@@ -266,7 +266,7 @@ export default function CarPage() {
               <div className="space-y-3" aria-busy><p className="hint">Looking up your car and pricing it with Gemini…</p><div className="shimmer w-3/4" /><div className="shimmer w-2/3" /><div className="shimmer w-1/2" /></div>
             ) : (
               <div>
-                <h2 className="text-[19px] font-bold">Tell us about your car</h2>
+                <h2 className="text-[19px] font-semibold">Tell us about your car</h2>
                 <p className="hint mt-1">
                   {mode === "vin" ? "Enter your VIN" : "Choose the year, make and model"} and the miles, and we&apos;ll estimate what it&apos;s worth.
                 </p>

@@ -7,7 +7,10 @@ import { useEffect, useRef, useState } from "react";
 const API_SRC = "https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js";
 
 // Viewer options: start and spin right away, keep the wheel scrolling the page,
-// and hide every button and label Sketchfab lets us hide.
+// and hide every button and label Sketchfab lets us hide. The ui_* switches only
+// work on models whose owner pays for Sketchfab, so CROP also crops off the
+// title bar, the button row and the "click & hold" hint (credits are in the
+// site footer instead).
 const OPTIONS = {
   autostart: 1, preload: 1, autospin: 0.25, scrollwheel: 0, transparent: 1, dnt: 1,
   ui_theme: "dark", ui_hint: 0, ui_help: 0, ui_settings: 0, ui_vr: 0, ui_ar: 0,
@@ -16,6 +19,7 @@ const OPTIONS = {
 };
 const ZOOM = 0.8; // after recentering, keep this fraction of the camera distance
 const INTRO_MS = 1500; // Sketchfab's camera intro after "viewerready"
+const CROP = { top: 72, bottom: 144 }; // px of iframe hidden above and below the stage
 // Fade the viewer's edges to black so it melts into the black stage.
 const EDGE_FADE = "radial-gradient(ellipse 62% 72% at 50% 50%, #000 62%, transparent 100%)";
 
@@ -89,14 +93,14 @@ export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: P
   }, [uid, zoom]);
 
   return (
-    <div className={`relative bg-black ${className ?? ""}`}>
+    <div className={`relative overflow-hidden bg-black ${className ?? ""}`}>
       <iframe
         key={uid}
         ref={frame}
         title={`3D model of a ${label}`}
         allow="autoplay; fullscreen; xr-spatial-tracking"
-        className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-700 ${ready === uid ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-        style={{ maskImage: EDGE_FADE, WebkitMaskImage: EDGE_FADE }}
+        className={`absolute inset-x-0 w-full border-0 transition-opacity duration-700 ${ready === uid ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        style={{ top: -CROP.top, height: `calc(100% + ${CROP.top + CROP.bottom}px)`, maskImage: EDGE_FADE, WebkitMaskImage: EDGE_FADE }}
       />
     </div>
   );

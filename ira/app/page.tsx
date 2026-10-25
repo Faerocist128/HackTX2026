@@ -36,7 +36,7 @@ export default function Landing() {
               <Link href="/setup/money" className="btn btn-outline-light">Try a demo profile</Link>
             </div>
           </div>
-          <HeroCar className="relative mx-auto h-[300px] sm:h-[380px] lg:h-[420px] max-w-[980px] -mt-2" />
+          <HeroCar className="relative mx-auto mt-4 h-[300px] sm:h-[380px] lg:h-[420px] max-w-[980px]" />
           <details className="absolute right-4 sm:right-8 bottom-4 text-[12px] text-right max-w-[300px]">
             <summary className="ml-auto w-fit list-none cursor-pointer rounded-full px-2.5 py-0.5 font-semibold" style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.8)" }}>Info</summary>
             <p className="mt-2 rounded p-3 text-left" style={{ background: "rgba(0,0,0,0.75)" }}>

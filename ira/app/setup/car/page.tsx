@@ -52,6 +52,7 @@ export default function CarPage() {
   const [restored, setRestored] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the lookup
 
   // No profile yet → back to step 1.
   useEffect(() => { if (hydrated && !profile) router.replace("/setup/money"); }, [hydrated, profile, router]);
@@ -132,7 +133,7 @@ export default function CarPage() {
       } finally { if (!ctl.signal.aborted) setBusy(false); }
     }, 450);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [ready, mode, vin, year, make, model, miles, condition, profile?.estCreditTier]);
+  }, [ready, mode, vin, year, make, model, miles, condition, profile?.estCreditTier, attempt]);
 
   function next() {
     if (!found) return;
@@ -264,7 +265,10 @@ export default function CarPage() {
                 )}
               </div>
             ) : error ? (
-              <p role="alert" style={{ color: "var(--redInk)" }} className="font-semibold">{error}</p>
+              <div>
+                <p role="alert" style={{ color: "var(--redInk)" }} className="font-semibold">{error}</p>
+                {ready && <button type="button" className="btn btn-ghost btn-sm mt-4" onClick={() => setAttempt((n) => n + 1)}>Try again</button>}
+              </div>
             ) : busy ? (
               <div className="space-y-3" aria-busy><p className="hint">Looking up your car and pricing it with Gemini…</p><div className="shimmer w-3/4" /><div className="shimmer w-2/3" /><div className="shimmer w-1/2" /></div>
             ) : (

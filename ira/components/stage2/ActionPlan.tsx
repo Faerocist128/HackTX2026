@@ -38,7 +38,7 @@ export function ActionPlan({ steps, ready, checked, onToggle }: {
                     <span className="shrink-0 text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>{s.impact}</span>
                   </span>
                   <span className="block mt-1" style={{ color: "var(--ink2)" }}>{s.why}</span>
-                  <span className="block mt-2 hint">ⓘ From your Nessie data: {s.nessieEvidence}</span>
+                  <span className="block mt-2 hint">ⓘ From your bank data: {s.nessieEvidence}</span>
                   <span className="block hint">◷ {s.timeframe}</span>
                 </span>
               </label>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 interface Health { ok: boolean; missing: string[]; nessieError: string | null }
 
 const WHERE: Record<string, { what: string; get: string }> = {
-  NESSIE_API_KEY: { what: "Capital One Nessie (your bank data)", get: "http://api.nessieisreal.com — sign in and copy your API key" },
+  NESSIE_API_KEY: { what: "Nessie bank API (your bank data)", get: "http://api.nessieisreal.com — sign in and copy your API key" },
   GEMINI_API_KEY: { what: "Google Gemini (car values and explanations)", get: "https://aistudio.google.com/apikey" },
 };
 

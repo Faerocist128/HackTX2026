@@ -31,12 +31,17 @@ export function buildUserMessage(input: ScoreInput, result: ScoreResult, steps: 
       band: result.odds.band,
       ...(result.odds.uncappedScore !== undefined && {
         capNote: `Factors add up to ${result.odds.uncappedScore}; the score is ${result.odds.score} because of ${[
-          result.knockouts.length > 0 && "the knockouts",
+          result.odds.capReason === "knockout" && "the knockouts",
+          result.odds.capReason === "approval" && `the lender approval level (${result.approval}), which caps the dial`,
           result.odds.rateAskMultiplier !== undefined && `a target APR below the rate lenders likely offer (only ~${Math.round(result.odds.rateAskMultiplier * 100)}% of lenders would offer it)`,
         ].filter(Boolean).join(" and ")}.`,
       }),
     },
-    refinanceValue: { score: result.worth.score, band: result.worth.band },
+    refinanceValue: {
+      score: result.worth.score,
+      band: result.worth.band,
+      ...(result.worth.capReason === "keepLoan" && { capNote: `Factors add up to ${result.worth.uncappedScore}; capped at ${result.worth.score} because the current loan already beats this refinance.` }),
+    },
     verdict: result.verdict,
     verdictLabel: VERDICT_COPY[result.verdict].chip,
     lenderApprovalLikelihood: result.approval,

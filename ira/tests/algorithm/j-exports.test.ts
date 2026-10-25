@@ -18,6 +18,13 @@ describe("J. remaining exports", () => {
     expect(scoreDelta(base, base)).toEqual({ odds: 0, worth: 0 });
   });
 
+  it("with no asOf date the engine uses today (vehicle age from the real clock)", () => {
+    const input = makeInput();
+    delete input.asOf;
+    const r = scoreRefinance(input);
+    expect(Number.isFinite(r.odds.score)).toBe(true);
+  });
+
   it("retail-value LTV is null when there's no retail value, else payoff / retail", () => {
     expect(scoreRefinance(makeInput({ vehicle: { estRetail: undefined } })).metrics.ltvRetail).toBeNull();
     const r = scoreRefinance(makeInput({ vehicle: { estRetail: 29_000 } }));

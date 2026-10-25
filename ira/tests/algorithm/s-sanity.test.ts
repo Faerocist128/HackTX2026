@@ -1,7 +1,7 @@
 /*
  * S. Do the outputs make sense together? Cross-output consistency, magnitude
- * sanity, and the explanations matching the numbers. Bugs found here are
- * itBug tests (xfail) with ids that match TEST_REPORT.md.
+ * sanity, and the explanations matching the numbers. Bugs found here were
+ * fixed; their tests stay as "BUG-n regression" with ids from TEST_REPORT.md.
  */
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
@@ -10,7 +10,6 @@ import { makeInput, type Overrides } from "./helpers/builders";
 import { arbInput, clone } from "./helpers/arbitraries";
 import { specExpect } from "./helpers/specModel";
 import { refPV, refPayment } from "./helpers/reference";
-import { itBug } from "./helpers/bug";
 
 const SEED = 4_242;
 const RUNS = Number(process.env.FC_RUNS ?? 1_000);
@@ -84,12 +83,23 @@ describe("S2. the verdict, the approval level and the two dials agree", () => {
     }), { seed: SEED, numRuns: RUNS });
   });
 
-  itBug("BUG-9: 'Refinance now' (well positioned) is never shown next to a red 'Not worth it yet' value dial", () => {
+  it("BUG-9 regression: a good like-for-like refinance built as a bad loan reads 'possible', not 'refinance now'", () => {
     // 9% → 7.31% term-matched is a good deal, but the loan the user built (84-month
-    // variable, paid late) is not; the verdict ignores it. Value score: 33.
+    // variable, paid late) is not: value 33 (red). Before the fix the verdict said "well positioned".
     const r = scoreRefinance(makeInput({ loan: { apr: 9, monthsRemaining: 36 }, scenario: { targetApr: 7.31, upfrontCosts: 0, termMonths: 84, loanType: "variable", paymentBehavior: "late" } }));
-    expect(r.verdict).toBe("wellPositioned");
-    expect(r.worth.band).not.toBe("red");
+    expect(r.worth.band).toBe("red");
+    expect(r.verdict).toBe("possible");
+    // Only red triggers it: from 10% the same stretched loan scores yellow and stays "well positioned".
+    const ten = scoreRefinance(makeInput({ loan: { apr: 10, monthsRemaining: 36 }, scenario: { targetApr: 7.31, upfrontCosts: 0, termMonths: 84, loanType: "variable", paymentBehavior: "late" } }));
+    expect(ten.worth.band).toBe("yellow");
+    expect(ten.verdict).toBe("wellPositioned");
+  });
+
+  it("BUG-9 regression: 'well positioned' never comes with a red value dial (property)", () => {
+    fc.assert(fc.property(arbInput, (i) => {
+      const r = scoreRefinance(i);
+      if (r.verdict === "wellPositioned") expect(r.worth.band).not.toBe("red");
+    }), { seed: SEED, numRuns: RUNS });
   });
 
   it("high approval never shows a red approval dial (no knockout, and the rate asked for is within the likely range)", () => {
@@ -113,21 +123,21 @@ describe("S2. the verdict, the approval level and the two dials agree", () => {
     expect(scoreRefinance(input).verdict).toBe(specExpect(input).verdict);
   });
 
-  itBug("BUG-2: a deep-subprime borrower (score 470, S2 approval 'low') is not shown 'Likely to be approved'", () => {
+  it("BUG-2 regression: a deep-subprime borrower (score 470, S2 approval 'low') is not shown 'Likely to be approved'", () => {
     // Golden G08 at the likely rate (no rate-ask penalty): approval low, yet the dial reads green.
     const r = scoreRefinance(makeInput({ profile: { estCreditTier: "deepSubprime", creditScore: 470 }, loan: { apr: 26 }, scenario: { targetApr: 21.37 } }));
     expect(r.approval).toBe("low");
     expect(r.odds.band).not.toBe("green");
   });
 
-  itBug("BUG-2: whenever S2 approval is 'low', the approval-odds dial is not green (property)", () => {
+  it("BUG-2 regression: whenever S2 approval is 'low', the approval-odds dial is not green (property)", () => {
     fc.assert(fc.property(arbInput, (i) => {
       const r = scoreRefinance(i);
       if (r.approval === "low") expect(r.odds.band).not.toBe("green");
     }), { seed: SEED, numRuns: RUNS });
   });
 
-  itBug("BUG-8: 'keep your loan' never comes with a green 'worth refinancing' value dial (property)", () => {
+  it("BUG-8 regression: 'keep your loan' never comes with a green 'worth refinancing' value dial (property)", () => {
     // Found by search: extra-payment savings (which the current loan could get too) push
     // the value score green while the term-matched verdict says keep. See also FINDING A8.
     fc.assert(fc.property(arbInput, (i) => {
@@ -146,22 +156,22 @@ describe("S3. cash-out is counted once", () => {
     expect(Math.abs(scoreRefinance(plain).metrics.npvSavings - specExpect(plain).npvBrief)).toBeLessThan(0.01);
   });
 
-  itBug("BUG-1: with $2,000 cash out, 'savings after fees' equals the brief's §6 NPV (no second subtraction)", () => {
+  it("BUG-1 regression: with $2,000 cash out, 'savings after fees' equals the brief's §6 NPV (no second subtraction)", () => {
     // Engine: brief NPV − $2,000. The brief's A_new already includes repaying the $2,000.
     expect(Math.abs(scoreRefinance(cash).metrics.npvSavings - specExpect(cash).npvBrief)).toBeLessThan(0.01);
   });
 
-  itBug("BUG-1: taking $2,000 out lowers displayed savings by about the cost of repaying it, not twice that", () => {
+  it("BUG-1 regression: taking $2,000 out lowers displayed savings by about the cost of repaying it, not twice that", () => {
     const drop = scoreRefinance(plain).metrics.npvSavings - scoreRefinance(cash).metrics.npvSavings;
     const r = scoreRefinance(cash).metrics;
     const repayCost = refPV(refPayment(2_000, r.creditedApr, 48), 48, 5); // PV of repaying $2,000 ≈ $2,090
     expect(drop).toBeLessThan(repayCost * 1.1);
   });
 
-  it("BUG-1 detail: the displayed savings and the verdict disagree (numbers pinned)", () => {
+  it("BUG-1 regression: the displayed savings and the verdict now use the same NPV", () => {
     const r = scoreRefinance(cash);
-    const e = specExpect(cash);
-    expect(r.metrics.npvSavings).toBeCloseTo(e.npvBrief - 2_000, 6);
+    const note = r.worth.factors.find((f) => f.key === "npvSavings")!.note;
+    expect(note).toContain(`$${Math.round(Math.abs(specExpect(cash).npvBrief)).toLocaleString("en-US")}`);
   });
 });
 
@@ -174,7 +184,7 @@ describe("S4. check-again timing makes sense", () => {
   ];
   const strong = { profile: { estCreditTier: "superPrime" as const, creditScore: 800 } };
 
-  itBug.each(permanent)("BUG-3: %s only gets worse with time, so there is no 'check again' date", (_, o) => {
+  it.each(permanent)("BUG-3 regression: %s only gets worse with time, so there is no 'check again' date", (_, o) => {
     const r = scoreRefinance(makeInput({ ...strong, ...o, profile: { ...strong.profile, ...o.profile } }));
     expect(r.verdict).toBe("notEligible");
     expect(r.checkAgainMonths).toBeNull();
@@ -205,29 +215,38 @@ describe("S4. check-again timing makes sense", () => {
     expect(r.checkAgainMonths).toBe(Math.max(3, Math.min(k, 12)));
   });
 
-  it("BUG-7 detail: months remaining > original term pushes the seasoning date out (paid months go negative)", () => {
+  it("BUG-7 regression: months remaining > original term no longer pushes the seasoning date out (paid months floor at 0)", () => {
     const ok = scoreRefinance(makeInput({ profile: { estCreditTier: "subprime", creditScore: 560 }, loan: { apr: 22, monthsRemaining: 48, originalTerm: 60 }, scenario: { targetApr: 0 } }));
     const bad = scoreRefinance(makeInput({ profile: { estCreditTier: "subprime", creditScore: 560 }, loan: { apr: 22, monthsRemaining: 48, originalTerm: 36 }, scenario: { targetApr: 0 } }));
-    expect(bad.checkAgainMonths).toBeGreaterThan(ok.checkAgainMonths!);
-    expect(bad.checkAgainMonths).toBe(23 + 12); // need − paid = 23 − (36 − 48)
+    expect(ok.checkAgainMonths).toBe(11); // 23 − 12 paid
+    expect(bad.checkAgainMonths).toBe(23); // paid floors at 0, not −12 (was 35)
   });
 });
 
 describe("S5. the stated payment and the loan terms agree", () => {
-  itBug.each([
+  it.each([
     ["twice the real payment", 2],
     ["missing ($0)", 0],
-  ])("BUG-4: a stated payment %s is flagged instead of driving 'savings after fees'", (_, factor) => {
+  ])("BUG-4 regression: a stated payment %s is flagged instead of driving 'savings after fees'", (_, factor) => {
     const real = refPayment(20_000, 12, 48);
     const r = scoreRefinance(makeInput({ loan: { monthlyPayment: real * (factor as number) } }));
     const flagged = r.knockouts.length > 0 || r.reasons.some((s) => /payment/i.test(s) && /match|check|confirm/i.test(s));
     expect(flagged).toBe(true);
   });
 
-  it("BUG-4 detail: with the payment overstated 2x, NPV savings is ~13x the lifetime savings (numbers pinned)", () => {
-    const r = scoreRefinance(makeInput({ loan: { monthlyPayment: 2 * refPayment(20_000, 12, 48) } }));
-    expect(r.metrics.npvSavings).toBeGreaterThan(10 * r.metrics.lifetimeInterestDelta);
-    expect(r.verdict).toBe("wellPositioned");
+  it("BUG-4 regression: an overstated payment is replaced by the amortized one, so the economics match a consistent loan", () => {
+    const consistent = scoreRefinance(makeInput());
+    const overstated = scoreRefinance(makeInput({ loan: { monthlyPayment: 2 * refPayment(20_000, 12, 48) } }));
+    expect(overstated.metrics.currentPayment).toBeCloseTo(refPayment(20_000, 12, 48), 8);
+    expect(overstated.metrics.npvSavings).toBeCloseTo(consistent.metrics.npvSavings, 6);
+    expect(overstated.verdict).toBe(consistent.verdict);
+  });
+
+  it("a stated payment within 10% of the amortized one is used as given (no flag)", () => {
+    const real = refPayment(20_000, 12, 48);
+    const r = scoreRefinance(makeInput({ loan: { monthlyPayment: real * 1.09 } }));
+    expect(r.metrics.currentPayment).toBeCloseTo(real * 1.09, 8);
+    expect(r.reasons.some((s) => /doesn't match/.test(s))).toBe(false);
   });
 });
 
@@ -268,12 +287,14 @@ describe("S7. design choices that look odd (documented, need a business decision
     expect(b.worth.score).toBeGreaterThan(a.worth.score);
   });
 
-  it("FINDING A9: promising to pay early on the new loan raises approval odds for someone with a late payment", () => {
+  it("FINDING A9: promising to pay early raises the history factor for someone with a late payment, but the S2 cap now limits the dial", () => {
     const base = { profile: { latePayments12mo: 1 } };
     const onTime = scoreRefinance(makeInput(base));
     const early = scoreRefinance(makeInput({ ...base, scenario: { paymentBehavior: "early" } }));
-    expect(early.odds.score).toBeGreaterThan(onTime.odds.score);
-    expect(early.approval).toBe(onTime.approval); // the S2 level (the lender's view) doesn't move
+    const hist = (r: typeof onTime) => r.odds.factors.find((f) => f.key === "paymentHistory")!.points;
+    expect(hist(early)).toBeGreaterThan(hist(onTime));
+    expect(early.approval).toBe("medium"); // the lender's S2 view doesn't move
+    expect(early.odds.score).toBeLessThanOrEqual(69); // and since the BUG-2 fix, it caps the dial
   });
 
   it("FINDING: 'well positioned' (term-matched) often comes with a yellow value score for a stretched loan", () => {

@@ -41,12 +41,16 @@ describe("D1. output ranges and integrity", () => {
     }));
   });
 
-  it("each score is the rounded sum of its factor points, capped at 39 on a knockout and scaled by the rate ask (odds only)", () => {
+  it("each score is the rounded sum of its factor points, capped by knockouts (39), the S2 approval level (low 39, medium 69) or the current loan winning (value 69), and scaled by the rate ask (odds only)", () => {
     check(fc.property(arbInput, (i) => {
       const r = scoreRefinance(i);
       const e = specExpect(i);
       const ask = specRateAsk(i.scenario.targetApr, e.likely.apr, e.likely.lo);
-      for (const [s, cap, mult] of [[r.odds, r.knockouts.length ? 39 : 100, ask], [r.worth, 100, 1]] as const) {
+      const approvalCap = e.approval === "low" ? 39 : e.approval === "medium" ? 69 : 100;
+      const oddsCap = Math.min(r.knockouts.length ? 39 : 100, approvalCap);
+      const currentLoanWins = e.gap < 0.5 || e.npvBrief < 250 || !!i.profile.currentAutoLoan.subsidized;
+      const worthCap = currentLoanWins ? 69 : 100;
+      for (const [s, cap, mult] of [[r.odds, oddsCap, ask], [r.worth, worthCap, 1]] as const) {
         const sum = Math.max(1, Math.min(100, Math.round(s.factors.reduce((a, f) => a + f.points, 0))));
         expect(s.score).toBe(Math.max(1, Math.round(Math.min(sum, cap) * mult)));
         for (const f of s.factors) {

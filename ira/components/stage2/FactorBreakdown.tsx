@@ -43,10 +43,14 @@ export function FactorBreakdown({ result }: { result: ScoreResult }) {
       </ul>
       <p className="hint mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
         {scale.uncappedScore !== undefined
-          ? <>These {scale.factors.length} factors add up to {scale.uncappedScore}, but your approval odds are {scale.score} because {[
-              result.knockouts.length > 0 && `most lenders won't refinance right now: ${result.knockouts.map((k) => k.replace(/\.$/, "").toLowerCase()).join("; ")}`,
+          ? <>These {scale.factors.length} factors add up to {scale.uncappedScore}, but your {SCALE_COPY[tab].title.toLowerCase()} score is {scale.score} because {[
+              scale.capReason === "knockout" && `most lenders won't refinance right now: ${result.knockouts.map((k) => k.replace(/\.$/, "").toLowerCase()).join("; ")}`,
+              scale.capReason === "approval" && `lenders' approval rules (credit score, debt, payment size, car value, late payments) put you at ${result.approval} approval`,
+              scale.capReason === "keepLoan" && "your current loan already beats this refinance",
               scale.rateAskMultiplier !== undefined && `the rate you picked is below what lenders likely offer you (${lo.toFixed(1)}%–${hi.toFixed(1)}%), and few would go that low`,
-            ].filter(Boolean).join(", and ")}. {result.knockouts.length > 0 ? "Fix that" : "Pick a rate in that range"} and your score can rise toward {scale.uncappedScore}.</>
+            ].filter(Boolean).join(", and ")}.{" "}
+            {scale.capReason === "knockout" ? "Fix that and your score can rise toward " : scale.capReason === "approval" ? "Your plan shows which steps raise your approval level toward " : scale.capReason === "keepLoan" ? "A better rate or lower fees can move it toward " : "Pick a rate in that range and your score can rise toward "}
+            {scale.uncappedScore}.</>
           : <>These {scale.factors.length} factors add up to your {SCALE_COPY[tab].title.toLowerCase()} score of {scale.score}. Same inputs, same score, every time.</>}
       </p>
     </section>

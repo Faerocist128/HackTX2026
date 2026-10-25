@@ -93,6 +93,8 @@ export interface Scale {
   uncappedScore?: number;
   /** Approval odds only: the share of lenders likely to offer the target APR, when under 1. */
   rateAskMultiplier?: number;
+  /** Why a cap pulled the score under its factor points: a knockout, the S2 approval level, or "keep your loan". */
+  capReason?: "knockout" | "approval" | "keepLoan";
 }
 
 export interface ScoreMetrics {

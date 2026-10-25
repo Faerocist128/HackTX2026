@@ -13,7 +13,7 @@ export default defineConfig({
     // Branch coverage of the scoring algorithm (engine + everything it calls).
     coverage: {
       provider: "v8",
-      include: ["lib/scoring/engine.ts", "lib/scoring/loanMath.ts", "lib/scoring/rateModel.ts", "lib/scoring/bands.ts", "lib/scoring/config.ts"],
+      include: ["lib/scoring/engine.ts", "lib/scoring/loanMath.ts", "lib/scoring/rateModel.ts", "lib/scoring/bands.ts", "lib/scoring/config.ts", "lib/scoring/validate.ts"],
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage/algorithm",
     },

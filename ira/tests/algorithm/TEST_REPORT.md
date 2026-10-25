@@ -1,6 +1,8 @@
 # Refinance algorithm: test report
 
-**Scope:** `scoreRefinance()` (`lib/scoring/engine.ts`) and everything it calls: `loanMath.ts`, `rateModel.ts`, `bands.ts`, `config.ts`, and `vehicleAgeYears()` in `lib/vehicle/value.ts`. The algorithm source was not modified.
+**Scope:** `scoreRefinance()` (`lib/scoring/engine.ts`) and everything it calls: `loanMath.ts`, `rateModel.ts`, `bands.ts`, `config.ts`, `validate.ts`, and `vehicleAgeYears()` in `lib/vehicle/value.ts`.
+
+> **Status: all 9 bugs below are fixed.** Their tests now run as normal `BUG-n regression` tests, so there are no expected-fail tests left. See "Fixes applied" at the end. The bug descriptions are kept as found.
 **Spec:** the research brief (`docs/refi-research.pdf`, §6 and §8 S1–S5), `config.ts`, and the code's `ASSUMPTION` notes. Details are in [SPEC_ASSUMPTIONS.md](SPEC_ASSUMPTIONS.md).
 
 ## How to run
@@ -20,15 +22,15 @@ FC_RUNS=5000 FC_SEED=1 npx vitest run tests/algorithm/d-properties.test.ts   # d
 |---|---|---:|---:|---:|
 | A. Typical borrowers, all 5 tiers | `a-happyPath.test.ts` | 34 | 0 | 0 |
 | B. Thresholds: at, below and above (incl. rate ask) | `b-boundaries.test.ts` | 150 | 0 | 0 |
-| C. Invalid input, percent vs decimal | `c-invalidInput.test.ts` | 44 | 10 | 0 |
+| C. Invalid input, percent vs decimal | `c-invalidInput.test.ts` | 59 | 0 | 0 |
 | D. Property-based invariants (fast-check) | `d-properties.test.ts` | 26 | 0 | 0 |
 | E. Financial math vs the reference | `e-financialMath.test.ts` | 30 | 0 | 0 |
 | G. Fairness and compliance | `g-fairness.test.ts` | 8 | 0 | 0 |
 | H. Golden table (20 scenarios) | `h-golden.test.ts` | 85 | 0 | 0 |
 | I. Performance (10,000 inputs) | `i-performance.test.ts` | 1 | 0 | 0 |
-| J. Remaining exports | `j-exports.test.ts` | 3 | 0 | 0 |
-| S. Do the outputs make sense together? | `s-sanity.test.ts` | 24 | 12 | 0 |
-| **Total** | | **405** | **22** | **0** |
+| J. Remaining exports | `j-exports.test.ts` | 4 | 0 | 0 |
+| S. Do the outputs make sense together? | `s-sanity.test.ts` | 38 | 0 | 0 |
+| **Total** | | **435** | **0** | **0** |
 
 - **Known-bug tests:** each one states the correct behavior and is marked `it.fails` (vitest's xfail). If a fix makes one pass, vitest flags it so the marker can be removed. Each was checked with `SHOW_BUGS=1` to confirm it fails on its own assertion, not on a crash or typo.
 - **Main's update to the engine:** after pulling main (PR #11, "Lower approval odds when the target APR is below what lenders offer"), the suite caught the change right away. Five tests failed because the engine's rules had changed on purpose. They were updated to the new rule and checked against an independent copy of its formula (`specRateAsk`), and new tests cover the rule's thresholds: the likely rate, the low end of the range, and below it.
@@ -46,7 +48,10 @@ v8 provider, run with `npm run test:algorithm:coverage`.
 | rateModel.ts | 100% | 100% | 100% | 100% |
 | bands.ts | 100% | 100% | 100% | 100% |
 | config.ts | 100% | 100% | 100% | 100% |
-| **All** | **100% (229/229)** | **100% (208/208)** | **100% (32/32)** | **100% (190/190)** |
+| validate.ts | 100% | 100% | 100% | 100% |
+| **All** | **100% (294/294)** | **100% (260/260)** | **100% (38/38)** | **100% (244/244)** |
+
+One defensive branch in `rateAskMultiplier()` is marked `v8 ignore` because it can never run: the likely APR is always above the low end of its range.
 
 `vehicleAgeYears()` is exercised through the engine, including the 10-year knockout boundary. The rest of `lib/vehicle/value.ts` (car valuation) produces the engine's `estValue` input upstream, so it is outside this scope. The original `tests/scoring.test.ts` covers it.
 
@@ -172,3 +177,29 @@ Full list in SPEC_ASSUMPTIONS.md §4 and §6. The ones that matter most:
 6. **Plausibility limits for rates.** What's the lowest believable APR and discount rate, so decimal entries get caught?
 7. **Calibration.** Do approval odds track real approval rates? That needs outcome data (see brief §13). Until then the odds score is a heuristic, and no test can say whether 75 means 75%.
 8. **Seasoning and lates.** Should check-again use when each late payment actually happened, rather than a flat 12 months?
+
+## Fixes applied
+
+All fixes are in `lib/scoring/engine.ts`, plus `validate.ts` (new), `schema.ts`, `types.ts` (`capReason`), and the cap explanations in `FactorBreakdown.tsx`, `app/audit/page.tsx` and `lib/advice/prompt.ts`.
+
+| Bug | Fix |
+|---|---|
+| BUG-1 cash-out double count | `npvSavings` is the brief's §6 formula; the extra `− cashOut` is gone. The verdict and the displayed savings now use the same number. |
+| BUG-2 green dial at Low approval | The S2 approval level caps the odds dial: low → 39 (red), medium → 69 (yellow). This works like the knockout cap, with `capReason: "approval"`, and the factor points still show the uncapped sum. Exported as `approvalCap()`. |
+| BUG-3 pointless check-again date | `checkAgain()` returns null when a knockout can only get worse with time: car age, miles, balance under $5,000, or under 12 months left. |
+| BUG-4 stated payment not checked | If the stated payment is more than 10% off the amortized payment (balance, APR, months left), or is $0, the engine uses the amortized payment and adds a reason telling the user to check their statement. |
+| BUG-5 no input validation | New `validateScoreInput()` runs first and throws `ScoreInputError` (a `RangeError` subclass with a `field` property) on NaN, infinite, negative, out-of-range (on-time rate > 1, term < 1) or unknown values. |
+| BUG-6 decimal APR | Caught by the BUG-4 check: a 0.12% APR with a 12% payment is flagged. |
+| BUG-7 months > original term | The schema rejects it, and the engine floors "months paid" at 0. |
+| BUG-8 "keep" with a green value dial | When the S5 "keep current loan" conditions hold, the value score is capped at 69 (`capReason: "keepLoan"`). The cap is applied even when a knockout also fires; the 5,000-run stress test showed that otherwise clearing a knockout could lower the score. |
+| BUG-9 "refinance now" with a red value dial | "Well positioned" becomes "possible" when the user's built loan scores red on value. |
+
+**Behavior changes to know about:**
+- **The odds dial now never exceeds the S2 approval level.**
+  - Near-prime and one-late borrowers top out at yellow (69).
+  - Subprime and deep-subprime top out at red (39), unless S2 rates them medium or high.
+  - Demo personas still land in their target bands: Rachel 84/74 green, Alex 61/53 yellow, Riley 20/11 red.
+- **The engine now throws on invalid input** instead of returning NaN. The pages pass slider-bounded values, so this should never trigger in the app. If it does, the error names the field.
+- **A9 is now limited by the BUG-2 cap.** The "pay early" boost still raises the history factor, but the dial can't pass the S2 level.
+
+Still open (business decisions, not bugs): A8 (extra payments count toward refinance value) and the rest of "Findings that need a business decision" above.

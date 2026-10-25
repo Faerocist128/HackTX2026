@@ -1,16 +1,12 @@
 /*
  * C. Invalid and malformed input.
  *
- * scoreRefinance() validates nothing; the only guard is ScoreInputSchema at the
- * /api/advice boundary (the browser pages call the engine directly). So:
- *  1. the schema must reject each bad value, naming the offending field;
- *  2. the engine's own behavior on bad input is pinned down (crash type or output);
- *  3. where that behavior is unsafe, an `it.fails` test states the correct behavior
- *     and stays red-inverted until the engine is fixed (BUG ids → TEST_REPORT.md).
+ * Two guards: ScoreInputSchema (zod) at the /api/advice boundary, and since the
+ * BUG-5 fix, validateScoreInput() inside the engine for the browser pages that
+ * call scoreRefinance() directly. Both must reject bad values and name the field.
  */
 import { describe, expect, it } from "vitest";
-import { itBug } from "./helpers/bug";
-import { scoreRefinance } from "@/lib/scoring/engine";
+import { scoreRefinance, ScoreInputError } from "@/lib/scoring/engine";
 import { ScoreInputSchema } from "@/lib/scoring/schema";
 import { makeInput, type Overrides } from "./helpers/builders";
 
@@ -71,91 +67,66 @@ describe("C1. the API schema rejects bad values and names the field", () => {
   });
 });
 
-describe("C2. what the engine itself does with bad input (no validation layer)", () => {
-  it("throws a TypeError when the scenario is missing", () => {
+describe("C2. the engine rejects bad input with ScoreInputError (BUG-5, fixed)", () => {
+  /** Assert the specific error type and that it names the offending field. */
+  const rejectsField = (input: unknown, field: string) => {
+    let err: unknown;
+    try { scoreRefinance(input as never); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(ScoreInputError);
+    expect(err).toBeInstanceOf(RangeError);
+    expect((err as ScoreInputError).field).toBe(field);
+  };
+
+  it("a missing scenario", () => {
     const { profile, vehicle } = makeInput();
-    expect(() => scoreRefinance({ profile, vehicle } as never)).toThrow(TypeError);
+    rejectsField({ profile, vehicle }, "scenario");
   });
 
-  it("throws a TypeError on an empty input object", () => {
-    expect(() => scoreRefinance({} as never)).toThrow(TypeError);
+  it("an empty input object", () => rejectsField({}, "profile"));
+  it("null input", () => rejectsField(null, "input"));
+
+  it.each<[string, Overrides, string]>([
+    ["NaN balance", { loan: { balance: Number.NaN } }, "loan.balance"],
+    ["NaN current APR", { loan: { apr: Number.NaN } }, "loan.apr"],
+    ["infinite income", { profile: { monthlyIncome: Number.POSITIVE_INFINITY } }, "profile.monthlyIncome"],
+    ["NaN income", { profile: { monthlyIncome: Number.NaN } }, "profile.monthlyIncome"],
+    ["NaN car value", { vehicle: { estValue: Number.NaN } }, "vehicle.estValue"],
+    ["NaN target APR", { scenario: { targetApr: Number.NaN } }, "scenario.targetApr"],
+    ["NaN fees", { scenario: { upfrontCosts: Number.NaN } }, "scenario.upfrontCosts"],
+    ["a 0-month new loan", { scenario: { termMonths: 0 } }, "scenario.termMonths"],
+    ["a negative extra payment", { scenario: { extraMonthlyPayment: -500 } }, "scenario.extraMonthlyPayment"],
+    ["a negative balance", { loan: { balance: -1 } }, "loan.balance"],
+    ["an on-time rate given as a percent (98)", { profile: { onTimePaymentRate: 98 } }, "profile.onTimePaymentRate"],
+    ["an unknown loan type", { scenario: { loanType: "balloon" as never } }, "scenario.loanType"],
+    ["an unknown channel", { scenario: { channel: "pawnshop" as never } }, "scenario.channel"],
+    ["an unknown payment behavior", { scenario: { paymentBehavior: "sometimes" as never } }, "scenario.paymentBehavior"],
+    ["an unknown credit tier", { profile: { estCreditTier: "excellent" as never } }, "profile.estCreditTier"],
+    ["months as a string ('48')", { scenario: { termMonths: "48" as never } }, "scenario.termMonths"],
+  ])("BUG-5 regression: %s → ScoreInputError naming the field", (_, o, field) => rejectsField(makeInput(o), field));
+
+  it("BUG-5 regression: a missing (undefined) monthly payment → ScoreInputError", () => {
+    const input = makeInput();
+    (input.profile.currentAutoLoan as { monthlyPayment?: number }).monthlyPayment = undefined;
+    rejectsField(input, "loan.monthlyPayment");
   });
 
-  it("throws a TypeError for an unknown payment behavior", () => {
-    expect(() => scoreRefinance(makeInput({ scenario: { paymentBehavior: "sometimes" as never } }))).toThrow(TypeError);
+  it("a car value of 0 is allowed and treated as unknown: LTV 9.99, so the LTV knockout fires (safe)", () => {
+    const r = scoreRefinance(makeInput({ vehicle: { estValue: 0 } }));
+    expect(r.metrics.ltv).toBe(9.99);
+    expect(r.verdict).toBe("notEligible");
   });
 
-  it("throws a TypeError for an unknown credit tier (no label to look up)", () => {
-    expect(() => scoreRefinance(makeInput({ profile: { estCreditTier: "excellent" as never } }))).toThrow(TypeError);
-  });
-
-  it("does not throw for an unknown loan type or channel: it returns NaN instead (BUG-5)", () => {
-    for (const o of [{ scenario: { loanType: "balloon" as never } }, { scenario: { channel: "pawnshop" as never } }] satisfies Overrides[]) {
-      const r = scoreRefinance(makeInput(o));
-      expect(Number.isNaN(r.metrics.likelyApr)).toBe(true);
-    }
-  });
-
-  it("treats NaN income as no income (PTI = DTI = 100%), silently", () => {
-    const r = scoreRefinance(makeInput({ profile: { monthlyIncome: Number.NaN } }));
+  it("income of 0 is allowed: PTI = DTI = 100%, approval low", () => {
+    const r = scoreRefinance(makeInput({ profile: { monthlyIncome: 0 } }));
     expect(r.metrics.pti).toBe(1);
-    expect(r.metrics.dti).toBe(1);
     expect(r.approval).toBe("low");
   });
 
-  it("treats a NaN or zero car value as unknown: LTV 9.99, so the LTV knockout fires (safe)", () => {
-    for (const estValue of [Number.NaN, 0]) {
-      const r = scoreRefinance(makeInput({ vehicle: { estValue } }));
-      expect(r.metrics.ltv).toBe(9.99);
-      expect(r.verdict).toBe("notEligible");
-    }
-  });
-
-  it("coerces numeric strings silently ('48' months behaves like 48)", () => {
-    const a = scoreRefinance(makeInput());
-    const b = scoreRefinance(makeInput({ scenario: { termMonths: "48" as never } }));
-    expect(b.metrics.newPayment).toBeCloseTo(a.metrics.newPayment, 8);
-  });
-});
-
-describe("C3. BUG-5: the engine returns garbage instead of failing on invalid numbers", () => {
-  const scoresAreNumbers = (o: Overrides) => {
-    const r = scoreRefinance(makeInput(o));
-    expect(Number.isNaN(r.odds.score)).toBe(false);
-    expect(Number.isNaN(r.worth.score)).toBe(false);
-  };
-
-  itBug.each<[string, Overrides]>([
-    ["NaN balance", { loan: { balance: Number.NaN } }],
-    ["NaN current APR", { loan: { apr: Number.NaN } }],
-    ["NaN target APR", { scenario: { targetApr: Number.NaN } }],
-    ["NaN fees", { scenario: { upfrontCosts: Number.NaN } }],
-    ["unknown loan type", { scenario: { loanType: "balloon" as never } }],
-    ["unknown channel", { scenario: { channel: "pawnshop" as never } }],
-  ])("BUG-5: %s should not produce a NaN score", (_, o) => scoresAreNumbers(o));
-
-  it("BUG-5 detail: a NaN score is shown as a red band with verdict 'notYet', so it looks like real advice", () => {
-    const r = scoreRefinance(makeInput({ loan: { balance: Number.NaN } }));
-    expect(Number.isNaN(r.odds.score)).toBe(true);
-    expect(r.odds.band).toBe("red");
-    expect(r.verdict).toBe("notYet");
-  });
-
-  itBug("BUG-5: a 0-month new loan should not score as a green, worth-it refinance", () => {
-    const r = scoreRefinance(makeInput({ scenario: { termMonths: 0 } }));
-    expect(r.worth.band).not.toBe("green");
-  });
-
-  itBug("BUG-5: a negative extra payment should not invent lifetime savings larger than the whole balance", () => {
-    const r = scoreRefinance(makeInput({ scenario: { extraMonthlyPayment: -500 } }));
-    expect(r.metrics.lifetimeInterestDelta).toBeLessThan(20_000);
-  });
-
-  itBug("BUG-5: a missing monthly payment (undefined) should not produce NaN scores", () => {
-    const input = makeInput();
-    (input.profile.currentAutoLoan as { monthlyPayment?: number }).monthlyPayment = undefined;
-    const r = scoreRefinance(input);
-    expect(Number.isNaN(r.worth.score)).toBe(false);
+  it("valid unusual values still score: 0% APR, 0 months left, $0 balance, no credit score, a market rate", () => {
+    for (const o of [
+      { loan: { apr: 0 } }, { loan: { monthsRemaining: 0, monthlyPayment: 0 } }, { loan: { balance: 0, monthlyPayment: 0 } },
+      { profile: { creditScore: undefined } }, { market: { typicalApr: 9, note: "" } },
+    ] satisfies Overrides[]) expect(() => scoreRefinance(makeInput(o))).not.toThrow();
   });
 });
 
@@ -165,18 +136,15 @@ describe("C4. percent vs. decimal confusion", () => {
     expect(r.metrics.payoff).toBeCloseTo(20_000 * (1 + 0.12 * 10 / 365), 6);
   });
 
-  it("FINDING (BUG-6): a decimal APR (0.12 meant as 12%) passes the schema and silently says 'keep your loan'", () => {
-    // Stated payment is the 12% payment, but APR is entered as 0.12.
+  it("a decimal APR (0.12 meant as 12%) still passes the schema, which can't know the intent", () => {
     const asPercent = makeInput({ loan: { apr: 12 } });
     const asDecimal = makeInput({ loan: { apr: 0.12, monthlyPayment: asPercent.profile.currentAutoLoan.monthlyPayment } });
     const json = JSON.parse(JSON.stringify(asDecimal));
     delete json.asOf;
     expect(ScoreInputSchema.safeParse(json).success).toBe(true);
-    expect(scoreRefinance(asPercent).verdict).toBe("possible");
-    expect(scoreRefinance(asDecimal).verdict).toBe("keepCurrentLoan");
   });
 
-  itBug("BUG-6: an APR that contradicts the stated payment by 10x+ should be flagged, not scored", () => {
+  it("BUG-6 regression: an APR that contradicts the stated payment is flagged in the reasons", () => {
     const pay = makeInput({ loan: { apr: 12 } }).profile.currentAutoLoan.monthlyPayment;
     const r = scoreRefinance(makeInput({ loan: { apr: 0.12, monthlyPayment: pay } }));
     // Any signal would do: a knockout, a reason, or refusing to give a verdict.
@@ -190,9 +158,12 @@ describe("C4. percent vs. decimal confusion", () => {
     expect(r005.metrics.npvSavings).toBeGreaterThan(r5.metrics.npvSavings);
   });
 
-  it("FINDING (BUG-7): the schema accepts more months remaining than the original term", () => {
+  it("BUG-7 regression: the schema rejects more months remaining than the original term", () => {
     const json = JSON.parse(JSON.stringify(makeInput({ loan: { monthsRemaining: 100, originalTerm: 60 } })));
     delete json.asOf;
-    expect(ScoreInputSchema.safeParse(json).success).toBe(true);
+    rejects(json, ["profile", "currentAutoLoan", "monthsRemaining"]);
+    const ok = JSON.parse(JSON.stringify(makeInput({ loan: { monthsRemaining: 60, originalTerm: 60 } })));
+    delete ok.asOf;
+    expect(ScoreInputSchema.safeParse(ok).success).toBe(true);
   });
 });

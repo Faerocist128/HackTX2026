@@ -10,12 +10,12 @@ export function FactorBreakdown({ result }: { result: ScoreResult }) {
   return (
     <section className="card p-6" aria-labelledby="factors-h">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="factors-h" className="text-[22px] font-bold">What&apos;s driving your scores</h2>
+        <h2 id="factors-h" className="text-[22px] font-semibold">What&apos;s driving your scores</h2>
         <span className="hint">points</span>
       </div>
-      <div className="seg-group mt-4 max-w-[440px]" role="tablist">
+      <div className="tabs mt-4" role="tablist">
         {(["odds", "worth"] as ScaleKey[]).map((k) => (
-          <button key={k} role="tab" className="seg" aria-selected={tab === k} onClick={() => setTab(k)}>
+          <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
             {SCALE_COPY[k].title} · {result[k].score}
           </button>
         ))}
@@ -27,10 +27,7 @@ export function FactorBreakdown({ result }: { result: ScoreResult }) {
           return (
             <li key={f.key}>
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-2 font-bold">
-                  <span className="w-5 h-5 rounded-full inline-flex items-center justify-center text-[12px]" style={{ background: helps ? "var(--greenSoft)" : "var(--amberSoft)", color: ink }} aria-hidden>{helps ? "✓" : "×"}</span>
-                  {f.label}
-                </span>
+                <span className="font-bold">{f.label}</span>
                 <span className="text-[14px] font-bold" style={{ color: ink }}>
                   {helps ? "Helping" : "Hurting"} · {f.points.toFixed(f.points % 1 ? 1 : 0)}/{f.maxPoints}
                 </span>

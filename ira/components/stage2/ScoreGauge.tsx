@@ -110,7 +110,7 @@ export function ScoreGauge({ scale, score, band, verdict, preview, compact, anno
         )}
       </div>
       <div className="text-center -mt-2">
-        <div className={`${compact ? "text-[44px]" : "text-[64px]"} font-extrabold leading-none`} style={{ color: copy.ink, transition: "color 400ms ease" }}>{Math.round(shown)}</div>
+        <div className={`${compact ? "text-[44px]" : "text-[64px]"} font-bold leading-none`} style={{ color: copy.ink, transition: "color 400ms ease" }}>{Math.round(shown)}</div>
         <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold ${compact ? "text-[13px]" : ""}`} style={{ background: copy.soft, color: copy.ink }}>
           <BandIcon band={band} />
           {label}

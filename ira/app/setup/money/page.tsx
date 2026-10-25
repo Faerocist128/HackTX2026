@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/chrome/Header";
+import { PageBand } from "@/components/chrome/PageBand";
 import { Tip } from "@/components/ui/Tip";
 import type { ManualInput } from "@/lib/nessie/personas";
 import { useAuditStore, useHydrated } from "@/lib/store";
@@ -97,11 +98,12 @@ export default function MoneyPage() {
   return (
     <>
       <Header step={1} />
-      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10">
-        <h1 className="text-[34px] sm:text-[40px] font-extrabold">Your money</h1>
-        <p className="mt-2 max-w-[560px]" style={{ color: "var(--ink2)" }}>Pick a demo person to explore, or use your own info. Everything is loaded from and saved to Capital One&apos;s Nessie API. This doesn&apos;t check your credit.</p>
+      <PageBand eyebrow="Step 1 of 5" title="Your money" width="max-w-[1100px]">
+        Pick a demo person to explore, or use your own info. Everything is loaded from and saved to Capital One&apos;s Nessie API. This doesn&apos;t check your credit.
+      </PageBand>
+      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-10">
 
-        <div className="mt-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Choose a profile">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Choose a profile">
           {(personas ?? Array.from({ length: 3 }, (_, i) => ({ id: `s${i}`, name: "", first: "", blurb: "" }))).map((p) => {
             const active = !own && personaId === p.id;
             return (
@@ -112,25 +114,24 @@ export default function MoneyPage() {
                 disabled={!personas || !!loading}
                 onClick={() => pick(p.id)}
                 className="card p-5 text-left relative transition-shadow"
-                style={{ boxShadow: active ? "inset 0 0 0 2px var(--brand), var(--shadow)" : undefined, minHeight: 168 }}
+                style={{ boxShadow: active ? "inset 0 0 0 2px var(--brand)" : undefined, minHeight: 128 }}
               >
                 {personas ? (
                   <>
-                    <span className="w-11 h-11 rounded-full inline-flex items-center justify-center font-extrabold" style={{ background: "var(--redSoft)", color: "var(--redInk)" }}>{p.first[0]}</span>
-                    {active && <span className="absolute top-5 right-5 w-7 h-7 rounded-full inline-flex items-center justify-center text-white" style={{ background: "var(--brand)" }} aria-hidden>✓</span>}
-                    <div className="mt-4 font-bold text-[18px]">{p.name}</div>
-                    <div className="mt-1 hint">{loading === p.id ? "Loading from Nessie…" : p.blurb}</div>
+                    <RadioDot on={active} />
+                    <div className="pr-8 font-bold text-[20px] leading-tight">{p.name}</div>
+                    <div className="mt-2 hint">{loading === p.id ? "Loading from Nessie…" : p.blurb}</div>
                   </>
                 ) : (
-                  <div className="space-y-3"><div className="shimmer w-11 !h-11 !rounded-full" /><div className="shimmer w-2/3" /><div className="shimmer" /></div>
+                  <div className="space-y-3"><div className="shimmer w-2/3" /><div className="shimmer" /><div className="shimmer w-4/5" /></div>
                 )}
               </button>
             );
           })}
-          <button role="radio" aria-checked={own} onClick={() => setOwn(true)} className="card p-5 text-left relative" style={{ boxShadow: own ? "inset 0 0 0 2px var(--brand), var(--shadow)" : undefined, minHeight: 168 }}>
-            <span className="w-11 h-11 rounded-full inline-flex items-center justify-center font-extrabold text-[22px]" style={{ background: "var(--chip)", color: "var(--ink2)" }}>+</span>
-            <div className="mt-4 font-bold text-[18px]">Use my own info</div>
-            <div className="mt-1 hint">Type in a few rough numbers. Takes about a minute.</div>
+          <button role="radio" aria-checked={own} onClick={() => setOwn(true)} className="card p-5 text-left relative" style={{ boxShadow: own ? "inset 0 0 0 2px var(--brand)" : "inset 0 0 0 1.5px var(--lineStrong)", background: "transparent", minHeight: 128 }}>
+            <RadioDot on={own} />
+            <div className="pr-8 font-bold text-[20px] leading-tight">Use my own info</div>
+            <div className="mt-2 hint">Type in a few rough numbers. Takes about a minute.</div>
           </button>
         </div>
 
@@ -139,10 +140,8 @@ export default function MoneyPage() {
         {sel && (
           <section className="card p-6 mt-8 rise" aria-live="polite">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[22px] font-bold">Here&apos;s what we see for {sel.name.split(" ")[0]}</h2>
-              <span className="text-[13px] font-bold px-3 py-1 rounded-full" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>
-                ✓ Loaded from Capital One Nessie
-              </span>
+              <h2 className="text-[22px] font-semibold">Here&apos;s what we see for {sel.name.split(" ")[0]}</h2>
+              <span className="hint">Loaded from Capital One Nessie</span>
             </div>
             <dl className="mt-5 grid gap-4 grid-cols-2 lg:grid-cols-5">
               <Stat label="Money coming in each month" value={usd(sel.monthlyIncome)} />
@@ -159,7 +158,7 @@ export default function MoneyPage() {
 
         {own && (
           <section className="card p-6 mt-8 rise">
-            <h2 className="text-[22px] font-bold">Tell us a little about your money</h2>
+            <h2 className="text-[22px] font-semibold">Tell us a little about your money</h2>
             <p className="hint mt-1">Rough numbers are fine. You can change them later. We save them to Nessie as a demo bank customer.</p>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="First name (optional)" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
@@ -200,11 +199,20 @@ export default function MoneyPage() {
   );
 }
 
+/** The radio mark in a choice card's corner: a ring, filled Toyota red when chosen. */
+function RadioDot({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden className="absolute top-5 right-5 w-5 h-5 rounded-full inline-flex items-center justify-center" style={{ boxShadow: `inset 0 0 0 2px ${on ? "var(--brand)" : "var(--lineStrong)"}` }}>
+      {on && <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--brand)" }} />}
+    </span>
+  );
+}
+
 function Stat({ label, value, tip }: { label: string; value: string; tip?: string }) {
   return (
-    <div className="rounded-2xl p-4" style={{ background: "var(--chip)" }}>
+    <div className="rounded-lg p-4" style={{ background: "var(--chip)" }}>
       <dt className="hint flex items-center gap-1">{label}{tip && <Tip text={tip} label={label} />}</dt>
-      <dd className="mt-1 text-[22px] font-extrabold">{value}</dd>
+      <dd className="mt-1 text-[22px] font-bold">{value}</dd>
     </div>
   );
 }

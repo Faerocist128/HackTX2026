@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Figtree } from "next/font/google";
+import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { KeyGate } from "@/components/chrome/KeyGate";
 import { brand } from "@/lib/brand";
+import { Footer } from "@/components/chrome/Footer";
 
-const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+// Humanist sans close to Toyota Type (which is licensed and not ours to ship).
+const sourceSans = Source_Sans_3({ variable: "--font-source", subsets: ["latin"], weight: ["300", "400", "600", "700"] });
 
 export const metadata: Metadata = {
   title: brand.product,
@@ -14,7 +16,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${figtree.variable} min-h-screen flex flex-col`}><KeyGate>{children}</KeyGate></body>
+      <body className={`${sourceSans.variable} min-h-screen flex flex-col`}>
+        <KeyGate>{children}</KeyGate>
+        <Footer />
+      </body>
     </html>
   );
 }

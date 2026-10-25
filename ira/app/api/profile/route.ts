@@ -27,12 +27,12 @@ export async function GET(req: Request) {
   if (!PERSONAS.some((p) => p.id === persona)) return NextResponse.json({ error: "Unknown persona" }, { status: 404 });
 
   const customerId = (await seededIds())[persona];
-  if (!customerId) return NextResponse.json({ error: "This demo person isn't in Nessie yet. Run npm run seed." }, { status: 503 });
+  if (!customerId) return NextResponse.json({ error: "This demo person isn't in the bank yet. Run npm run seed." }, { status: 503 });
   try {
     return NextResponse.json(normalize(await fetchBundle(customerId)));
   } catch (err) {
     if (err instanceof MissingKeyError) return NextResponse.json({ error: err.message }, { status: 503 });
     console.warn("profile: Nessie failed", (err as Error).message);
-    return NextResponse.json({ error: "We couldn't load this profile from Nessie. If you changed your key, run npm run seed again." }, { status: 502 });
+    return NextResponse.json({ error: "We couldn't load this profile from the bank. If you changed your key, run npm run seed again." }, { status: 502 });
   }
 }

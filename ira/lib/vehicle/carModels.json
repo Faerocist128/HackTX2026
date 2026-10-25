@@ -1,55 +1,66 @@
 {
   "toyota/tacoma": {
+    "label": "Midsize pickup",
     "sketchfab": "https://sketchfab.com/3d-models/2019-toyota-tacoma-8bb91f037ec64151ba72279c50ce5c20",
     "credit": "\"2019 Toyota Tacoma\" by David_Holiday, CC BY 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2019-toyota-tacoma-8bb91f037ec64151ba72279c50ce5c20"
   },
   "toyota/camry": {
+    "label": "Midsize sedan",
     "sketchfab": "https://sketchfab.com/3d-models/2022-toyota-camry-xv70-hybrid-032e14c718cb4e7e8fbd5b968cb79d04",
     "credit": "\"2022 Toyota Camry (XV70) Hybrid\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2022-toyota-camry-xv70-hybrid-032e14c718cb4e7e8fbd5b968cb79d04"
   },
   "toyota/camry hybrid": {
+    "label": "Midsize hybrid sedan",
     "sketchfab": "https://sketchfab.com/3d-models/2022-toyota-camry-xv70-hybrid-032e14c718cb4e7e8fbd5b968cb79d04",
     "credit": "\"2022 Toyota Camry (XV70) Hybrid\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2022-toyota-camry-xv70-hybrid-032e14c718cb4e7e8fbd5b968cb79d04"
   },
   "toyota/rav4": {
+    "label": "Compact SUV",
     "sketchfab": "https://sketchfab.com/3d-models/2021-toyota-rav4-prime-hybrid-e-four-411da54827634c5abd462ab4e9e0eb34",
     "credit": "\"2021 Toyota RAV4 Prime Hybrid E-Four\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2021-toyota-rav4-prime-hybrid-e-four-411da54827634c5abd462ab4e9e0eb34"
   },
   "toyota/rav4 hybrid": {
+    "label": "Compact hybrid SUV",
     "sketchfab": "https://sketchfab.com/3d-models/2021-toyota-rav4-prime-hybrid-e-four-411da54827634c5abd462ab4e9e0eb34",
     "credit": "\"2021 Toyota RAV4 Prime Hybrid E-Four\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2021-toyota-rav4-prime-hybrid-e-four-411da54827634c5abd462ab4e9e0eb34"
   },
   "toyota/rav4 prime": {
+    "label": "Plug-in hybrid SUV",
     "sketchfab": "https://sketchfab.com/3d-models/2021-toyota-rav4-prime-hybrid-e-four-411da54827634c5abd462ab4e9e0eb34",
     "credit": "\"2021 Toyota RAV4 Prime Hybrid E-Four\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2021-toyota-rav4-prime-hybrid-e-four-411da54827634c5abd462ab4e9e0eb34"
   },
   "toyota/corolla": {
+    "label": "Compact sedan",
     "sketchfab": "https://sketchfab.com/3d-models/toyota-corolla-e170-2017-d87af59849814c5cb35a0c233f2c2f19",
     "credit": "\"toyota-corolla-e170-2017\" by Blender Boy, CC BY-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/toyota-corolla-e170-2017-d87af59849814c5cb35a0c233f2c2f19"
   },
   "toyota/corolla hybrid": {
+    "label": "Compact hybrid sedan",
     "sketchfab": "https://sketchfab.com/3d-models/toyota-corolla-e170-2017-d87af59849814c5cb35a0c233f2c2f19",
     "credit": "\"toyota-corolla-e170-2017\" by Blender Boy, CC BY-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/toyota-corolla-e170-2017-d87af59849814c5cb35a0c233f2c2f19"
   },
   "toyota/highlander": {
+    "label": "Midsize 3-row SUV",
     "sketchfab": "https://sketchfab.com/3d-models/2021-toyota-crown-kluger-cb207b4e197e4f0bbe20041b97ebdd59",
     "credit": "\"2021 Toyota Crown Kluger\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2021-toyota-crown-kluger-cb207b4e197e4f0bbe20041b97ebdd59"
   },
   "toyota/highlander hybrid": {
+    "label": "Midsize hybrid SUV",
     "sketchfab": "https://sketchfab.com/3d-models/2021-toyota-crown-kluger-cb207b4e197e4f0bbe20041b97ebdd59",
     "credit": "\"2021 Toyota Crown Kluger\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2021-toyota-crown-kluger-cb207b4e197e4f0bbe20041b97ebdd59"
   },
   "toyota/land cruiser": {
+    "label": "Full-size off-roader",
     "sketchfab": "https://sketchfab.com/3d-models/2024-toyota-land-cruiser-250-first-edition-26458d2f6450404d84dd70d42cd41ac4",
     "credit": "\"2024 Toyota Land Cruiser 250 First Edition\" by Ddiaz Design, CC BY-NC-SA 4.0",
     "creditUrl": "https://sketchfab.com/3d-models/2024-toyota-land-cruiser-250-first-edition-26458d2f6450404d84dd70d42cd41ac4"

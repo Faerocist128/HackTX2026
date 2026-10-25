@@ -3,3 +3,12 @@
 !.env.example
 Nessie-API-Keys.txt
 *-API-Keys.txt
+
+# Local AI tooling and editor files (personal, not part of the app)
+.agents/
+.claude/
+.codex/
+.taste-skill/
+.vscode/
+skills-lock.json
+/package-lock.json

@@ -24,6 +24,9 @@ export const ProfileSchema = z.object({
     originalTerm: z.number().int().min(1).max(120),
     originalAmount: z.number().optional(),
     subsidized: z.boolean().optional(),
+  }).refine((l) => l.monthsRemaining <= l.originalTerm, {
+    message: "monthsRemaining can't exceed originalTerm",
+    path: ["monthsRemaining"],
   }),
   evidence: z.array(z.string().max(300)).max(20),
   source: z.literal("nessie"),

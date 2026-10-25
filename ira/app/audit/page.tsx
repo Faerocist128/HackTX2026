@@ -10,7 +10,7 @@ import { ScenarioSliders } from "@/components/stage1/ScenarioSliders";
 import { ScoreGauge } from "@/components/stage2/ScoreGauge";
 import { BAND_COLORS, displayLabel, SCALE_COPY } from "@/lib/scoring/bands";
 import { POLICY } from "@/lib/scoring/config";
-import { scoreRefinance } from "@/lib/scoring/engine";
+import { approvalCap, scoreRefinance } from "@/lib/scoring/engine";
 import type { ScoreResult } from "@/lib/scoring/types";
 import { useAuditStore, useHydrated, useScoreInput } from "@/lib/store";
 
@@ -78,8 +78,9 @@ export default function AuditPage() {
 
   const knockedOut = result.knockouts.length > 0;
   // Odds without the knockout cap, but still with the rate-ask discount the sliders control.
+  // The S2 approval-level cap still applies without the knockouts.
   const uncapped = result.odds.uncappedScore !== undefined
-    ? Math.max(1, Math.round(result.odds.uncappedScore * (result.odds.rateAskMultiplier ?? 1)))
+    ? Math.max(1, Math.round(Math.min(result.odds.uncappedScore, approvalCap(result.approval)) * (result.odds.rateAskMultiplier ?? 1)))
     : undefined;
   // Cash-out adds to what's owed, so it alone can trip the 130% value limit; then the sliders can help.
   const cashOutCauses =

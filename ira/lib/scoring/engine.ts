@@ -39,6 +39,9 @@ import type {
   WorthFactorKey,
 } from "./types";
 import { vehicleAgeYears } from "../vehicle/value";
+import { validateScoreInput } from "./validate";
+
+export { ScoreInputError } from "./validate";
 
 /** Weights per scale sum to 100. Order is display order. */
 export const ODDS_WEIGHTS: Record<OddsFactorKey, number> = {
@@ -105,6 +108,22 @@ type Raw = { share: number; raw: number; note: string };
 const KNOCKOUT_CAP = POLICY.bands.yellow - 1;
 
 /*
+ * The approval dial follows the research S2 approval level, the same way a
+ * knockout caps it: Low can't read "Likely to be approved" (green) or even
+ * "possible" (yellow), and Medium can't read green. Factor points still show
+ * what the score would be without the cap.
+ */
+export function approvalCap(approval: Approval): number {
+  return approval === "low" ? POLICY.bands.yellow - 1 : approval === "medium" ? POLICY.bands.green - 1 : 100;
+}
+
+/* "Keep your current loan" means refinancing isn't worth it, so the value dial can't read green. */
+const KEEP_LOAN_CAP = POLICY.bands.green - 1;
+
+/** Stated payment may differ from the amortized one by this share before we flag it. */
+const PAYMENT_TOLERANCE = 0.1;
+
+/*
  * ASSUMPTION (extends §8 S3; plan "target vs. likely"): approval odds are the
  * odds of a yes *at the rate asked for*. Underwriting factors decide whether a
  * lender says yes at all; asking for less than lenders offer this borrower makes
@@ -114,13 +133,20 @@ export function rateAskMultiplier(targetApr: number, likely: { apr: number; rang
   const [lo] = likely.range;
   if (targetApr >= likely.apr) return 1;
   if (targetApr >= lo) {
+    /* v8 ignore next -- likely.apr is always above the range's low end (channel −0.5 vs −1.25) */
     const t = likely.apr > lo ? (likely.apr - targetApr) / (likely.apr - lo) : 1;
     return 1 - t * (1 - POLICY.rateAskAtRangeLow);
   }
   return POLICY.rateAskAtRangeLow * Math.exp(-(lo - targetApr) / POLICY.rateAskDecayPoints);
 }
 
-function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, Raw>, cap = 100, multiplier = 1): Scale {
+function scale<K extends FactorKey>(
+  weights: Record<K, number>,
+  raw: Record<K, Raw>,
+  cap = 100,
+  multiplier = 1,
+  capReason?: Scale["capReason"],
+): Scale {
   const factors: FactorBreakdown[] = (Object.keys(weights) as K[]).map((key) => {
     const w = weights[key];
     const points = Math.round(clamp01(raw[key].share) * w * 10) / 10;
@@ -143,11 +169,13 @@ function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, R
     band: bandOf(score),
     factors,
     ...(score < sum ? { uncappedScore: sum } : {}),
+    ...(cap < sum && capReason ? { capReason } : {}),
     ...(multiplier < 1 ? { rateAskMultiplier: Math.round(multiplier * 100) / 100 } : {}),
   };
 }
 
 export function scoreRefinance(input: ScoreInput): ScoreResult {
+  validateScoreInput(input);
   const { profile, vehicle, scenario } = input;
   const asOf = input.asOf ?? new Date();
   const loan = profile.currentAutoLoan;
@@ -161,7 +189,16 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
   const ltv = vehicle.estValue > 0 ? principal / vehicle.estValue : 9.99;
   const ltvRetail = vehicle.estRetail ? principal / vehicle.estRetail : null;
   const nRem = Math.max(1, loan.monthsRemaining);
-  const aOld = loan.monthlyPayment;
+  /*
+   * The current payment the comparison uses. The stated payment must agree with
+   * balance, APR and months left (within 10%); otherwise it is missing or the
+   * other fields are wrong (a decimal APR, a stale balance), and using it would
+   * invent or erase savings. Then we use the amortized payment and say so.
+   */
+  const aAmortized = payment(loan.balance, loan.apr, nRem);
+  const paymentMismatch =
+    aAmortized > 0 && Math.abs(loan.monthlyPayment - aAmortized) > PAYMENT_TOLERANCE * aAmortized;
+  const aOld = paymentMismatch ? aAmortized : loan.monthlyPayment;
 
   // ── S3 rate estimate ────────────────────────────────────────────────────────
   const tier = profile.estCreditTier;
@@ -187,9 +224,9 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     presentValue(aOld, nRem, scenario.discountRate) -
     presentValue(aTermMatched, nRem, scenario.discountRate) -
     scenario.upfrontCosts +
-    scenario.refunds -
-    // Cash-out is new borrowing, not savings (§4 negative equity): remove its value.
-    cashOut;
+    scenario.refunds;
+  // §6 NPV as the brief writes it. A_new already repays any cash-out, so the cash
+  // counts as a cost and never as a benefit (§4); it is not subtracted again.
   const breakEven = breakEvenMonths(scenario.upfrontCosts, aOld, aTermMatched);
 
   // The scenario the user built (any term, extra payments, behavior).
@@ -224,6 +261,12 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     knockouts.push(`${profile.latePayments12mo} payments 30+ days late in the last 12 months.`);
   if (ltv > POLICY.maxLtv)
     knockouts.push(`You owe ${pct(ltv)} of the car's estimated trade-in value; the usual limit is 130%.`);
+  // Knockouts that only get worse with time: balance and months left shrink, the car ages and adds miles.
+  const permanentKnockout =
+    loan.balance < POLICY.minBalance ||
+    loan.monthsRemaining < POLICY.minMonthsRemaining ||
+    ageYears > POLICY.maxVehicleAgeYears ||
+    vehicle.mileage > POLICY.maxMileage;
 
   // ── S2 approval likelihood ──────────────────────────────────────────────────
   const score = profile.creditScore ?? TIER_MID_SCORE[tier];
@@ -237,12 +280,13 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
   // The verdict uses the term-matched comparison (§6) at the credited rate, so it
   // follows the rate slider but never credits a rate below the likely range.
   const researchGap = loan.apr - termMatchedApr;
-  const researchNpv = npvSavings + cashOut;
+  const researchNpv = npvSavings;
   const researchBreakEven = breakEven;
+  // The current loan already wins (S5 "Keep current loan" conditions), knockouts aside.
+  const currentLoanWins = researchGap < POLICY.keepLoanRateGap || researchNpv < POLICY.keepLoanNpv || !!loan.subsidized;
   let verdict: Verdict;
   if (knockouts.length) verdict = "notEligible";
-  else if (researchGap < POLICY.keepLoanRateGap || researchNpv < POLICY.keepLoanNpv || loan.subsidized)
-    verdict = "keepCurrentLoan";
+  else if (currentLoanWins) verdict = "keepCurrentLoan";
   else if (
     approval === "high" &&
     researchGap >= POLICY.wellPositionedRateGap &&
@@ -254,9 +298,6 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
   else if (approval !== "low") verdict = "possible";
   else verdict = "notYet";
 
-  // Check-again timing (§8 S5 "Not yet"): earlier of the LTV crossover month and
-  // the §3 seasoning month for the borrower's current tier.
-  const checkAgainMonths = checkAgain(verdict, profile, vehicle, loan, ltv, current.balances);
 
   // ── Approval odds factors ───────────────────────────────────────────────────
   const historyLevel =
@@ -396,8 +437,22 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
   };
 
   const rateAsk = rateAskMultiplier(scenario.targetApr, likely);
-  const odds = scale(ODDS_WEIGHTS, oddsRaw, knockouts.length ? KNOCKOUT_CAP : 100, rateAsk);
-  const worth = scale(WORTH_WEIGHTS, worthRaw);
+  const oddsCap = Math.min(knockouts.length ? KNOCKOUT_CAP : 100, approvalCap(approval));
+  const odds = scale(ODDS_WEIGHTS, oddsRaw, oddsCap, rateAsk, knockouts.length ? "knockout" : "approval");
+  // Capped whenever the current loan wins, even if a knockout also applies, so
+  // clearing a knockout can never lower the value score.
+  const worth = scale(WORTH_WEIGHTS, worthRaw, currentLoanWins ? KEEP_LOAN_CAP : 100, 1, "keepLoan");
+
+  /*
+   * The verdict compares like for like (§6), but the page shows it next to the
+   * value of the loan the user built. "Refinance now" beside a red "Not worth it
+   * yet" contradicts itself: the refinance is right, this version of it isn't.
+   */
+  if (verdict === "wellPositioned" && worth.band === "red") verdict = "possible";
+
+  // Check-again timing (§8 S5 "Not yet"): earlier of the LTV crossover month and
+  // the §3 seasoning month for the borrower's current tier.
+  const checkAgainMonths = checkAgain(verdict, profile, vehicle, loan, ltv, current.balances, permanentKnockout);
 
   const metrics: ScoreMetrics = {
     payoff,
@@ -434,6 +489,9 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     knockouts,
     reasons: rankedReasons([...odds.factors, ...worth.factors], [
       ...knockouts,
+      ...(paymentMismatch
+        ? [`Your stated payment (${usd(loan.monthlyPayment)}) doesn't match a ${usd(loan.balance)} balance at ${loan.apr}% over ${nRem} months (about ${usd(aAmortized)}). Check your loan statement; we used ${usd(aAmortized)}.`]
+        : []),
       ...(rateAsk < 0.9
         ? [`Lenders rarely offer less than ${likely.range[0].toFixed(1)}% to someone in your position, so asking for ${scenario.targetApr.toFixed(1)}% lowers your approval odds.`]
         : []),
@@ -468,8 +526,11 @@ function checkAgain(
   loan: ScoreInput["profile"]["currentAutoLoan"],
   ltv: number,
   balances: number[],
+  permanentKnockout: boolean,
 ): number | null {
   if (verdict === "wellPositioned" || verdict === "keepCurrentLoan") return null;
+  // Waiting can't fix a knockout that only gets worse with time (§8 S5 dates are for "Not yet").
+  if (permanentKnockout) return null;
   const candidates: number[] = [];
   // LTV crossover: first month the balance falls under the value curve (value held
   // flat as a conservative ASSUMPTION; depreciation would push it later).
@@ -478,7 +539,7 @@ function checkAgain(
     if (idx > 0) candidates.push(idx);
   }
   // Seasoning: months already paid count toward the §3 convergence window.
-  const paid = loan.originalTerm - loan.monthsRemaining;
+  const paid = Math.max(0, loan.originalTerm - loan.monthsRemaining);
   const need = SEASONING_TO_NEXT[profile.estCreditTier];
   if (need !== undefined && NEXT_TIER[profile.estCreditTier]) candidates.push(Math.max(3, need - paid));
   // Recent lates age out of the 12-month window.

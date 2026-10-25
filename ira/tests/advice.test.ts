@@ -79,4 +79,11 @@ describe("Nessie normalization", () => {
   it("unknown APR uses the 2026 used-loan average", () => {
     expect(manualSpec({ firstName: "", monthlyIncome: 4_000, monthlyDebts: 0, balance: 9_000, apr: null, monthsLeft: 30, credit: "prime", lates: 0 }).loan.apr).toBe(11.19);
   });
+
+  it("names are stored as plain ASCII without mangling", () => {
+    const first = (firstName: string) => manualSpec({ firstName, monthlyIncome: 4_000, monthlyDebts: 0, balance: 9_000, apr: 9, monthsLeft: 30, credit: "prime", lates: 0 }).first;
+    expect(first("Zoë 🚗")).toBe("Zoe");
+    expect(first("  José   María ")).toBe("Jose Maria");
+    expect(first("🚗")).toBe("You");
+  });
 });

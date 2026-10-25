@@ -6,6 +6,8 @@ import { requireKey } from "../env";
 import { personaBills, personaDeposits, personaLoan, type PersonaSpec } from "./personas";
 
 const BASE = process.env.NESSIE_BASE_URL ?? "https://api.nessieisreal.com";
+/** Writes sent to Nessie at once; one at a time made saving "Use my own info" take 3–4 s. */
+const BATCH = 8;
 
 async function post<T = { objectCreated?: { _id: string } }>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}?key=${requireKey("NESSIE_API_KEY")}`, {
@@ -35,14 +37,19 @@ export async function writePerson(p: PersonaSpec, asOf = new Date()): Promise<st
   );
   const acct = (type: string, nickname: string, balance: number) =>
     post(`/customers/${customerId}/accounts`, { type, nickname, rewards: 0, balance: Math.round(balance) }).then(idOf);
-  const chk = await acct("Checking", "Everyday checking", p.checking);
-  await acct("Savings", "Savings", p.savings);
-  if (p.card) await acct("Credit Card", `Card | limit ${p.card.limit}`, p.card.balance);
+  const [chk] = await Promise.all([
+    acct("Checking", "Everyday checking", p.checking),
+    acct("Savings", "Savings", p.savings),
+    p.card ? acct("Credit Card", `Card | limit ${p.card.limit}`, p.card.balance) : null,
+  ]);
 
   // Nessie can answer a failed write with a message instead of an error status,
   // so every write must return the created object.
-  for (const b of personaBills(p, asOf)) idOf(await post(`/accounts/${chk}/bills`, b));
-  for (const d of personaDeposits(p, asOf)) idOf(await post(`/accounts/${chk}/deposits`, d));
-  idOf(await post(`/accounts/${chk}/loans`, personaLoan(p, payment(p.loan.amount, p.loan.apr, p.loan.term))));
+  const writes = [
+    ...personaBills(p, asOf).map((b) => () => post(`/accounts/${chk}/bills`, b)),
+    ...personaDeposits(p, asOf).map((d) => () => post(`/accounts/${chk}/deposits`, d)),
+    () => post(`/accounts/${chk}/loans`, personaLoan(p, payment(p.loan.amount, p.loan.apr, p.loan.term))),
+  ];
+  for (let i = 0; i < writes.length; i += BATCH) await Promise.all(writes.slice(i, i + BATCH).map((w) => w().then(idOf)));
   return customerId;
 }

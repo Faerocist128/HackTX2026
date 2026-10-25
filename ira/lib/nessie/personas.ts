@@ -205,7 +205,7 @@ export function manualSpec(m: ManualInput): PersonaSpec {
   const latePayee = bills[0]?.payee;
   return {
     id: "manual",
-    first: (m.firstName || "You").replace(/[^\x20-\x7e]/g, "").slice(0, 40) || "You",
+    first: asciiName(m.firstName) || "You",
     last: "(own info)",
     blurb: "Your own info",
     targetBand: "yellow",
@@ -217,6 +217,11 @@ export function manualSpec(m: ManualInput): PersonaSpec {
     lates: Array.from({ length: m.lates }, (_, i) => ({ payee: latePayee!, monthsAgo: 2 + i * 3, daysLate: 35 })),
     loan: { amount: Math.round((m.balance / Math.max(unit, 1e-6)) * 100) / 100, apr, term, paid },
   };
+}
+
+/** Nessie corrupts non-ASCII, so "Zoë" is stored as "Zoe"; emoji and other symbols are dropped. */
+export function asciiName(name: string): string {
+  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
 }
 
 /** The same records the seed script writes, with stable fake ids (tests and scripts only). */

@@ -52,6 +52,8 @@ export function ActionPlan({ steps, ready, strong, checked, onToggle }: {
                   <span className="block mt-1" style={{ color: "var(--ink2)" }}>{s.why}</span>
                   <span className="block mt-2 hint"><span className="font-semibold">From your Nessie data:</span> {s.nessieEvidence}</span>
                   <span className="block hint"><span className="font-semibold">How long:</span> {s.timeframe}</span>
+                  <span className="block mt-2 hint">ⓘ From your bank data: {s.nessieEvidence}</span>
+                  <span className="block hint">◷ {s.timeframe}</span>
                 </span>
               </label>
             </li>

@@ -52,7 +52,7 @@ export default function MoneyPage() {
       if (!res.ok) throw new Error(json.error);
       setProfile(json as FinancialProfile, id);
     } catch (e) {
-      setError((e as Error).message || "We couldn't load that profile from Nessie. Try again.");
+      setError((e as Error).message || "We couldn't load that profile from the bank. Try again.");
     } finally {
       setLoading(null);
     }
@@ -82,7 +82,7 @@ export default function MoneyPage() {
           if (!res.ok) throw new Error(json.error);
           setProfile(json as FinancialProfile, "manual", m);
         } catch (e) {
-          setError((e as Error).message || "We couldn't save your info to Nessie. Try again.");
+          setError((e as Error).message || "We couldn't save your info to the bank. Try again.");
           return;
         } finally {
           setSaving(false);
@@ -102,6 +102,9 @@ export default function MoneyPage() {
         Pick a demo person to explore, or use your own info. Everything is loaded from and saved to Capital One&apos;s Nessie API. This doesn&apos;t check your credit.
       </PageBand>
       <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-8 py-10">
+      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10">
+        <h1 className="text-[34px] sm:text-[40px] font-extrabold">Your money</h1>
+        <p className="mt-2 max-w-[560px]" style={{ color: "var(--ink2)" }}>Pick a demo person to explore, or use your own info. Everything is loaded from and saved to a demo bank account. This doesn&apos;t check your credit.</p>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Choose a profile">
           {(personas ?? Array.from({ length: 3 }, (_, i) => ({ id: `s${i}`, name: "", first: "", blurb: "" }))).map((p) => {
@@ -121,6 +124,10 @@ export default function MoneyPage() {
                     <RadioDot on={active} />
                     <div className="pr-8 font-bold text-[20px] leading-tight">{p.name}</div>
                     <div className="mt-2 hint">{loading === p.id ? "Loading from Nessie…" : p.blurb}</div>
+                    <span className="w-11 h-11 rounded-full inline-flex items-center justify-center font-extrabold" style={{ background: "var(--redSoft)", color: "var(--redInk)" }}>{p.first[0]}</span>
+                    {active && <span className="absolute top-5 right-5 w-7 h-7 rounded-full inline-flex items-center justify-center text-white" style={{ background: "var(--brand)" }} aria-hidden>✓</span>}
+                    <div className="mt-4 font-bold text-[18px]">{p.name}</div>
+                    <div className="mt-1 hint">{loading === p.id ? "Loading from the bank…" : p.blurb}</div>
                   </>
                 ) : (
                   <div className="space-y-3"><div className="shimmer w-2/3" /><div className="shimmer" /><div className="shimmer w-4/5" /></div>
@@ -142,6 +149,10 @@ export default function MoneyPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[22px] font-semibold">Here&apos;s what we see for {sel.name.split(" ")[0]}</h2>
               <span className="hint">Loaded from Capital One Nessie</span>
+              <h2 className="text-[22px] font-bold">Here&apos;s what we see for {sel.name.split(" ")[0]}</h2>
+              <span className="text-[13px] font-bold px-3 py-1 rounded-full" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>
+                ✓ Loaded from the bank
+              </span>
             </div>
             <dl className="mt-5 grid gap-4 grid-cols-2 lg:grid-cols-5">
               <Stat label="Money coming in each month" value={usd(sel.monthlyIncome)} />
@@ -160,6 +171,8 @@ export default function MoneyPage() {
           <section className="card p-6 mt-8 rise">
             <h2 className="text-[22px] font-semibold">Tell us a little about your money</h2>
             <p className="hint mt-1">Rough numbers are fine. You can change them later. We save them to Nessie as a demo bank customer.</p>
+            <h2 className="text-[22px] font-bold">Tell us a little about your money</h2>
+            <p className="hint mt-1">Rough numbers are fine. You can change them later. We save them to a demo bank account.</p>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="First name (optional)" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
               <Field label="Money coming in each month" prefix="$" value={form.income} onChange={(v) => setForm({ ...form, income: v })} inputMode="decimal" hint="Before taxes." />
@@ -192,7 +205,7 @@ export default function MoneyPage() {
 
         <div className="mt-8 flex justify-between gap-4">
           <button className="btn btn-ghost" onClick={() => router.push("/")}>Back</button>
-          <button className="btn btn-primary" disabled={!canNext} onClick={next}>{saving ? "Saving to Nessie…" : <>Next: Your car <span aria-hidden>→</span></>}</button>
+          <button className="btn btn-primary" disabled={!canNext} onClick={next}>{saving ? "Saving…" : <>Next: Your car <span aria-hidden>→</span></>}</button>
         </div>
       </main>
     </>

@@ -17,6 +17,14 @@
   --brand: #eb0a1e;     /* Toyota red */
   --brandHover: #cc0000;
   --redInk: #cc0000;
+  --ink: #15171c;
+  --ink2: #4a4f59;
+  --line: #e2e4e8;
+  --lineStrong: #80858f; /* control boundaries: ≥3:1 on card, bg and chip (WCAG 1.4.11) */
+  --chip: #eef0f2;
+  --brand: #eb0a1e; /* Toyota red: CTAs, slider fill, red band */
+  --brandHover: #c8081a;
+  --redInk: #c8081a;
   --redSoft: #fdecee;
   --amber: #a35400;
   --amberSoft: #fff3df;
@@ -48,6 +56,25 @@
   --focus: #7aa7ff;
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1013;
+    --card: #1a1c21;
+    --ink: #f3f4f6;
+    --ink2: #b6bbc4;
+    --line: #2d3038;
+    --lineStrong: #767b85;
+    --chip: #24272e;
+    --redInk: #ff6b76;
+    --redSoft: #3a1418;
+    --amber: #ffb547;
+    --amberSoft: #3a2a10;
+    --green: #5bd68a;
+    --greenSoft: #12301e;
+    --focus: #7aa7ff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
@@ -122,6 +149,17 @@ a:hover { color: var(--redInk); }
 .field { width: 100%; min-height: 52px; padding: 0 16px; border-radius: 4px; border: 1px solid var(--lineStrong); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
 .field:focus { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); outline: none; }
 .label { font-weight: 600; font-size: 15px; }
+.btn-ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--lineStrong); }
+.btn-ghost:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink2); }
+.btn-sm { min-height: 40px; padding: 0 16px; font-size: 15px; }
+
+.seg-group { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--chip); }
+.seg { flex: 1; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; background: transparent; color: var(--ink2); transition: background-color 180ms ease, box-shadow 180ms ease, color 180ms ease; }
+.seg[aria-pressed="true"], .seg[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 0 0 1.5px var(--lineStrong); }
+
+.field { width: 100%; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 1.5px solid var(--lineStrong); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
+.field:focus { border-color: var(--ink); }
+.label { font-weight: 700; font-size: 15px; }
 .hint { color: var(--ink2); font-size: 14px; }
 
 /* Slider: red fill, white thumb with a black ring (Toyota carousel controls), green "likely" band */
@@ -143,6 +181,7 @@ input.range:focus-visible { outline: none; }
 .tip { position: relative; display: inline-flex; }
 .tip button { width: 32px; height: 32px; margin: -6px -4px; border: 0; background: transparent; color: var(--ink2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 999px; }
 .tipbox { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: min(260px, calc(100vw - 24px)); padding: 10px 14px; border-radius: 4px; background: var(--ink); color: var(--card); font-size: 15px; line-height: 1.4; font-weight: 500; pointer-events: none; z-index: 20; animation: tip-in 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tipbox { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: min(260px, calc(100vw - 24px)); padding: 10px 14px; border-radius: 12px; background: var(--ink); color: var(--card); font-size: 15px; line-height: 1.4; font-weight: 500; pointer-events: none; z-index: 20; animation: tip-in 160ms cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes tip-in { from { opacity: 0; transform: translate(-50%, 4px); } }
 
 .bar { transition: width 420ms cubic-bezier(0.16, 1, 0.3, 1); }

@@ -17,6 +17,7 @@ Rules:
 - rationale: 2–3 short paragraphs (each 1–3 sentences). First: the verdict, both scores and the single most important dollar number. Second: what helps and what holds them back, citing their real data. Third: what to do next.
 - Savings claims must be the term-matched, after-fee figures given (npvSavings, termMatchedMonthlySavings). Never promise approval or a rate; these are estimates.
 - steps: rewrite each provided step's title and why in your voice, keep the same id, impact, timeframe and evidence facts, same order. Do not add or drop steps.
+- Call the source data "your bank data". Never mention Nessie, Capital One or any bank by name.
 - If the verdict is keepCurrentLoan, celebrate that their current loan is already a good deal and suggest no steps beyond the provided ones.`;
 
 export function buildUserMessage(input: ScoreInput, result: ScoreResult, steps: StepCandidate[]): string {

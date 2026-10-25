@@ -1,9 +1,13 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/chrome/Header";
 import { useAuditStore, useHydrated, type CarDraft } from "@/lib/store";
 import type { Condition, MarketRate, Vehicle } from "@/lib/scoring/types";
+import { carSpecFor } from "@/lib/vehicle/models3d";
+
+const CarStage = dynamic(() => import("@/components/car/CarStage"), { ssr: false, loading: () => <div className="shimmer !h-full !rounded-none" /> });
 
 const CONDITIONS: { id: Condition; label: string; desc: string }[] = [
   { id: "excellent", label: "Excellent", desc: "Looks almost new. No dents or warning lights." },
@@ -137,15 +141,28 @@ export default function CarPage() {
 
   const modelOptions = models && model && !models.includes(model) ? [model, ...models] : models;
 
+  // The stage follows the form; once the lookup returns, it follows the found car.
+  const shown = found ? found.vehicle : mode === "ymm" && make && model ? { year, make, model, trim: undefined } : null;
+  const stageSpec = useMemo(() => carSpecFor(shown?.make ?? "", shown?.model ?? "", found?.specs.segment), [shown?.make, shown?.model, found?.specs.segment]);
+
   return (
     <>
       <Header step={2} />
-      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
-        <div>
-          <h1 className="text-[34px] sm:text-[40px] font-extrabold">Your car</h1>
-          <p className="mt-2" style={{ color: "var(--ink2)" }}>We use this to estimate what your car is worth today.</p>
+      <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10">
+        <h1 className="text-[34px] sm:text-[40px] font-extrabold">Your car</h1>
+        <p className="mt-2" style={{ color: "var(--ink2)" }}>We use this to estimate what your car is worth today.</p>
 
-          <section className="card p-6 mt-8">
+        <section className="card mt-8 overflow-hidden relative" style={{ background: "radial-gradient(ellipse 70% 60% at 50% 62%, var(--card) 0%, var(--chip) 100%)" }}>
+          <div className="absolute top-5 left-6 z-10 pointer-events-none">
+            <div className="text-[22px] sm:text-[26px] font-extrabold">{shown ? `${shown.year} ${shown.make} ${shown.model}${shown.trim ? ` ${shown.trim}` : ""}` : "Your car"}</div>
+            <div className="hint">{shown ? stageSpec.label : "Pick your car below to see it here"}</div>
+          </div>
+          <CarStage spec={stageSpec} className="h-[300px] sm:h-[420px]" />
+        </section>
+
+        <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
+        <div>
+          <section className="card p-6">
             <h2 className="text-[19px] font-bold">Which car is it?</h2>
             <div className="seg-group mt-4 max-w-[440px]">
               <button className="seg" aria-pressed={mode === "vin"} onClick={() => switchMode("vin")}>Use my VIN</button>
@@ -227,9 +244,6 @@ export default function CarPage() {
                 <p className="font-semibold" style={{ color: "var(--green)" }}>
                   ✓ {source === "saved" ? "Your saved car" : source === "profile" ? "Your car from your profile" : mode === "vin" ? "We found your car from its VIN" : "Here's your car"}
                 </p>
-                <div className="mt-4 rounded-2xl h-28 flex items-center justify-center" style={{ background: "var(--chip)" }} aria-hidden>
-                  <svg width="88" height="44" viewBox="0 0 88 44" fill="none" stroke="var(--ink2)" strokeWidth="2.5" strokeLinejoin="round"><path d="M6 32h76v-8l-10-4-12-10H30L18 20 6 24z" /><circle cx="24" cy="34" r="6" fill="var(--chip)" /><circle cx="66" cy="34" r="6" fill="var(--chip)" /></svg>
-                </div>
                 <h2 className="mt-4 text-[24px] font-extrabold">{found.vehicle.year} {found.vehicle.make} {found.vehicle.model}{found.vehicle.trim ? ` ${found.vehicle.trim}` : ""}</h2>
                 <p className="hint">{found.vehicle.mileage.toLocaleString()} miles · {CONDITIONS.find((c) => c.id === found.vehicle.condition)?.label} condition · {found.specs.segment}</p>
                 <div className="mt-5 rounded-2xl p-4" style={{ background: "var(--chip)" }}>
@@ -249,7 +263,7 @@ export default function CarPage() {
             ) : error ? (
               <p role="alert" style={{ color: "var(--redInk)" }} className="font-semibold">{error}</p>
             ) : busy ? (
-              <div className="space-y-3" aria-busy><p className="hint">Looking up your car and pricing it with Gemini…</p><div className="shimmer !h-28" /><div className="shimmer w-2/3" /><div className="shimmer w-1/2" /></div>
+              <div className="space-y-3" aria-busy><p className="hint">Looking up your car and pricing it with Gemini…</p><div className="shimmer w-3/4" /><div className="shimmer w-2/3" /><div className="shimmer w-1/2" /></div>
             ) : (
               <div>
                 <h2 className="text-[19px] font-bold">Tell us about your car</h2>
@@ -264,6 +278,7 @@ export default function CarPage() {
             <button className="btn btn-primary" disabled={!found || busy} onClick={next}>See my scores <span aria-hidden>→</span></button>
           </div>
         </aside>
+        </div>
       </main>
     </>
   );

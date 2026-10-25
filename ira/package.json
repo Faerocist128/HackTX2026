@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "seed": "tsx --env-file=.env.local lib/nessie/seed.ts"
+    "seed": "tsx --env-file=.env.local lib/nessie/seed.ts",
+    "test:algorithm": "vitest run tests/algorithm",
+    "test:algorithm:coverage": "vitest run tests/algorithm --coverage"
   },
   "dependencies": {
     "@google/genai": "^2.31.0",
@@ -27,8 +29,10 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^9",
     "eslint-config-next": "15.5.28",
+    "fast-check": "^4.10.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

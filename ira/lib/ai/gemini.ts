@@ -6,7 +6,8 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { requireKey } from "../env";
 
-export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+// Flash-Lite answers in about a second; gemini-3.8-flash timed out on a standard key.
+export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite";
 const TIMEOUT_MS = 15_000;
 
 let client: GoogleGenAI | null = null;

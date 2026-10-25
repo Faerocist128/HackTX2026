@@ -29,7 +29,12 @@ export function buildUserMessage(input: ScoreInput, result: ScoreResult, steps: 
     approvalOdds: {
       score: result.odds.score,
       band: result.odds.band,
-      ...(result.odds.uncappedScore !== undefined && { capNote: `Capped at ${result.odds.score} because of the knockouts; without them it would be ${result.odds.uncappedScore}.` }),
+      ...(result.odds.uncappedScore !== undefined && {
+        capNote: `Factors add up to ${result.odds.uncappedScore}; the score is ${result.odds.score} because of ${[
+          result.knockouts.length > 0 && "the knockouts",
+          result.odds.rateAskMultiplier !== undefined && `a target APR below the rate lenders likely offer (only ~${Math.round(result.odds.rateAskMultiplier * 100)}% of lenders would offer it)`,
+        ].filter(Boolean).join(" and ")}.`,
+      }),
     },
     refinanceValue: { score: result.worth.score, band: result.worth.band },
     verdict: result.verdict,

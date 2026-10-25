@@ -7,6 +7,7 @@ import type { ScaleKey, ScoreResult } from "@/lib/scoring/types";
 export function FactorBreakdown({ result }: { result: ScoreResult }) {
   const [tab, setTab] = useState<ScaleKey>("odds");
   const scale = result[tab];
+  const [lo, hi] = result.metrics.likelyAprRange;
   return (
     <section className="card p-6" aria-labelledby="factors-h">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -42,7 +43,10 @@ export function FactorBreakdown({ result }: { result: ScoreResult }) {
       </ul>
       <p className="hint mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
         {scale.uncappedScore !== undefined
-          ? <>These {scale.factors.length} factors add up to {scale.uncappedScore}, but your approval odds are capped at {scale.score} because most lenders won&apos;t refinance right now: {result.knockouts.map((k) => k.replace(/\.$/, "").toLowerCase()).join("; ")}. Fix that and your score can rise to {scale.uncappedScore}.</>
+          ? <>These {scale.factors.length} factors add up to {scale.uncappedScore}, but your approval odds are {scale.score} because {[
+              result.knockouts.length > 0 && `most lenders won't refinance right now: ${result.knockouts.map((k) => k.replace(/\.$/, "").toLowerCase()).join("; ")}`,
+              scale.rateAskMultiplier !== undefined && `the rate you picked is below what lenders likely offer you (${lo.toFixed(1)}%–${hi.toFixed(1)}%), and few would go that low`,
+            ].filter(Boolean).join(", and ")}. {result.knockouts.length > 0 ? "Fix that" : "Pick a rate in that range"} and your score can rise toward {scale.uncappedScore}.</>
           : <>These {scale.factors.length} factors add up to your {SCALE_COPY[tab].title.toLowerCase()} score of {scale.score}. Same inputs, same score, every time.</>}
       </p>
     </section>

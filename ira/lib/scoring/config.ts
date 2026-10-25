@@ -10,6 +10,12 @@ export const POLICY = {
   maxLates12mo: 1, // 2+ lates is a knockout
   maxLtv: 1.3,
 
+  // ASSUMPTION (extends §8 S3): odds a lender offers the rate you ask for. 1 at
+  // the likely rate, this much at the low end of the likely range, then halving
+  // about every 1.4 points below it (e^(-gap/2)).
+  rateAskAtRangeLow: 0.85,
+  rateAskDecayPoints: 2,
+
   // §8 S5 verdict thresholds
   keepLoanRateGap: 0.5,
   wellPositionedRateGap: 1.0,

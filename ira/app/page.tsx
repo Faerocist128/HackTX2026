@@ -23,10 +23,8 @@ export default function Landing() {
     <>
       <Header />
       <main>
-        {/* Hero: dark "photo" with the car, centered white headline and pills (toyota.com hero). */}
-        <section className="relative overflow-hidden text-white" style={{ background: "radial-gradient(120% 70% at 50% 18%, #3a3f47 0%, #1d2025 45%, #0b0b0c 100%)" }} aria-labelledby="hero-h">
-          {/* road-like floor */}
-          <div className="absolute inset-x-0 bottom-0 h-[46%]" aria-hidden style={{ background: "linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.05) 22%, rgba(0,0,0,0.55) 100%), repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 120px)" }} />
+        {/* Hero: black backdrop with the 3D car, centered white headline and pills (toyota.com hero). */}
+        <section className="relative overflow-hidden text-white bg-black" aria-labelledby="hero-h">
           <div className="relative mx-auto max-w-[1248px] px-4 sm:px-8 pt-14 sm:pt-16 text-center rise">
             <p className="eyebrow" style={{ color: "rgba(255,255,255,0.8)" }}>{brand.owner ? `${brand.product} by ${brand.owner}` : "Car refinance audit"}</p>
             <h1 id="hero-h" className="h-display mt-3 mx-auto max-w-[760px]">Should you refinance your car?</h1>

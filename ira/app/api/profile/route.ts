@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fetchBundle, nessieOffline } from "@/lib/nessie/client";
-import { fixtureProfile } from "@/lib/nessie/fixtures";
+import { MissingKeyError } from "@/lib/env";
+import { fetchBundle } from "@/lib/nessie/client";
 import { normalize } from "@/lib/nessie/normalize";
 import { PERSONAS } from "@/lib/nessie/personas";
 
@@ -16,7 +16,7 @@ async function seededIds(): Promise<Record<string, string>> {
   }
 }
 
-/** GET /api/profile → persona list. GET /api/profile?persona=<id> → FinancialProfile. */
+/** GET /api/profile → persona list. GET /api/profile?persona=<id> → FinancialProfile from live Nessie. */
 export async function GET(req: Request) {
   const persona = new URL(req.url).searchParams.get("persona");
   if (!persona) {
@@ -27,12 +27,12 @@ export async function GET(req: Request) {
   if (!PERSONAS.some((p) => p.id === persona)) return NextResponse.json({ error: "Unknown persona" }, { status: 404 });
 
   const customerId = (await seededIds())[persona];
-  if (!nessieOffline() && customerId) {
-    try {
-      return NextResponse.json(normalize(await fetchBundle(customerId)));
-    } catch (err) {
-      console.warn("Nessie unavailable, using fixture:", (err as Error).message);
-    }
+  if (!customerId) return NextResponse.json({ error: "This demo person isn't in Nessie yet. Run npm run seed." }, { status: 503 });
+  try {
+    return NextResponse.json(normalize(await fetchBundle(customerId)));
+  } catch (err) {
+    if (err instanceof MissingKeyError) return NextResponse.json({ error: err.message }, { status: 503 });
+    console.warn("profile: Nessie failed", (err as Error).message);
+    return NextResponse.json({ error: "We couldn't load this profile from Nessie. If you changed your key, run npm run seed again." }, { status: 502 });
   }
-  return NextResponse.json(fixtureProfile(persona));
 }

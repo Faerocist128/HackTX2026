@@ -1,15 +1,27 @@
-import type { FactorBreakdown as Factor } from "@/lib/scoring/types";
+"use client";
+import { useState } from "react";
+import { SCALE_COPY } from "@/lib/scoring/bands";
+import type { ScaleKey, ScoreResult } from "@/lib/scoring/types";
 
-/** One bar per factor: points earned of max. Deterministic, so it moves with the sliders. */
-export function FactorBreakdown({ factors, score }: { factors: Factor[]; score: number }) {
+/** One bar per factor: points earned of max, one tab per scale. Deterministic, so it moves with the sliders. */
+export function FactorBreakdown({ result }: { result: ScoreResult }) {
+  const [tab, setTab] = useState<ScaleKey>("odds");
+  const scale = result[tab];
   return (
     <section className="card p-6" aria-labelledby="factors-h">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="factors-h" className="text-[22px] font-bold">What&apos;s driving your score</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="factors-h" className="text-[22px] font-bold">What&apos;s driving your scores</h2>
         <span className="hint">points</span>
       </div>
-      <ul className="mt-4 space-y-4">
-        {factors.map((f) => {
+      <div className="seg-group mt-4 max-w-[440px]" role="tablist">
+        {(["odds", "worth"] as ScaleKey[]).map((k) => (
+          <button key={k} role="tab" className="seg" aria-selected={tab === k} onClick={() => setTab(k)}>
+            {SCALE_COPY[k].title} · {result[k].score}
+          </button>
+        ))}
+      </div>
+      <ul className="mt-5 space-y-4" role="tabpanel">
+        {scale.factors.map((f) => {
           const helps = f.direction === "helps";
           const ink = helps ? "var(--green)" : "var(--amber)";
           return (
@@ -32,7 +44,7 @@ export function FactorBreakdown({ factors, score }: { factors: Factor[]; score: 
         })}
       </ul>
       <p className="hint mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
-        These {factors.length} factors add up to your score of {score}. Same inputs, same score, every time.
+        These {scale.factors.length} factors add up to your {SCALE_COPY[tab].title.toLowerCase()} score of {scale.score}. Same inputs, same score, every time.
       </p>
     </section>
   );

@@ -48,7 +48,7 @@ const isDebtBill = (b: NessieBill) =>
   /\| debt\b/.test(b.nickname ?? "") ||
   (!/\| (debt|other)\b/.test(b.nickname ?? "") && /rent|mortgage|card|loan/i.test(b.payee));
 
-export function normalize(raw: NessieBundle, asOf = new Date(), source: FinancialProfile["source"] = "nessie"): FinancialProfile {
+export function normalize(raw: NessieBundle, asOf = new Date()): FinancialProfile {
   const allBills = Object.values(raw.bills).flat();
   const allDeposits = Object.values(raw.deposits).flat();
   const allLoans = Object.values(raw.loans).flat();
@@ -139,7 +139,7 @@ export function normalize(raw: NessieBundle, asOf = new Date(), source: Financia
       subsidized: /subsidized/i.test(auto?.description ?? ""),
     },
     evidence,
-    source,
+    source: "nessie",
   };
 }
 

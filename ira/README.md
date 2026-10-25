@@ -1,32 +1,57 @@
-# Refinance Audit
+# IRA
 
-A refinance readiness audit for car owners. One screen answers two questions that update together:
+A refinance audit for car owners. It answers two questions with two separate 1–100 scores that update live as you move the sliders:
 
-1. **How could refinancing look for you?** Sliders for loan length, rate, extra payment, payment habit, loan type and lender type, using the user's real-looking financial data from Capital One's Nessie API.
-2. **Should you refinance, and if not, how do you get there?** A 1–100 score (red / yellow / green) with a factor breakdown that adds up to the score, a plain-language rationale, and next steps priced in points by the engine.
+1. **Approval odds:** how likely is a lender to say yes?
+2. **Refinance value:** is refinancing worth it for you?
+
+Your money comes from Capital One's Nessie API, your car's value from Google Gemini plus the researched depreciation formula, and a separate plan page lists next steps priced in points by the engine.
+
+## Where the API keys go
+
+Both keys are **required**. The app shows a "Setup needed" screen and does nothing else until they are set.
+
+| Key | What it's for | Get one |
+| --- | --- | --- |
+| `NESSIE_API_KEY` | Every profile is read from (and "Use my own info" is saved to) Nessie | http://api.nessieisreal.com |
+| `GEMINI_API_KEY` | Car price and depreciation, a market-rate check, and the written explanation | https://aistudio.google.com/apikey |
+
+Put them in **`ira/.env.local`** (copy `ira/.env.example`), then restart the server.
 
 ## Run it
 
 ```bash
+cd ira
 npm install
-cp .env.example .env.local   # add NESSIE_API_KEY; ANTHROPIC_API_KEY is optional
+cp .env.example .env.local   # fill in NESSIE_API_KEY and GEMINI_API_KEY
 npm run seed                 # creates the 3 demo personas in Nessie, writes lib/nessie/seeded.json
 npm run dev
 npm test
 ```
 
-Without `NESSIE_API_KEY` (or with `NESSIE_OFFLINE=1`) profiles come from bundled fixtures built from the same persona records. Without `ANTHROPIC_API_KEY`, `/api/advice` returns rule-based text. The demo never shows an empty panel.
+Re-run `npm run seed` whenever you change `NESSIE_API_KEY`: the seeded customer ids belong to the key that created them.
 
-## How the score works
+## How the scores work
 
 `lib/scoring/engine.ts` is pure and deterministic and runs in the browser on every slider tick. It implements the research brief (`docs/refi-research.pdf`, §8) in two layers:
 
-- **Research verdict (§8 S1–S5):** knockouts → approval High/Medium/Low → rate estimate (Experian Q2 2026 tier base + LTV, age, term and channel adjustments) → term-matched NPV economics → verdict: Well positioned, Possible with conditions, Keep current loan, Not yet, or Not eligible.
-- **1–100 score:** 11 additive factors whose thresholds come from the brief; weights sum to 100 and points sum to the score. Bands: 1–39 red, 40–69 yellow, 70–100 green. "Keep current loan" shows green only for borrowers with high approval odds.
+- **Research verdict (§8 S1–S5):** knockouts → approval High/Medium/Low → rate estimate (Experian Q2 2026 tier base + LTV, age, term, channel and loan-type adjustments, plus half of Gemini's market-rate gap capped at ±1.5 points) → term-matched NPV economics → verdict: Well positioned, Possible with conditions, Keep current loan, Not yet, or Not eligible.
+- **Approval odds (1–100):** credit tier, payment history, LTV, DTI, PTI, car age and mileage, loan length and size. Any knockout shows it red.
+- **Refinance value (1–100):** rate gap, total interest over the loan you built (including extra payments), NPV savings after fees, break-even, monthly payment change, loan type and length risk.
+
+Each scale's weights sum to 100 and its factor points sum to its score. Bands: 1–39 red, 40–69 yellow, 70–100 green. Changing lender, loan type or loan length moves the target APR by the same amount as the likely rate (`applyScenarioPatch` in `lib/scoring/defaults.ts`). Tests check that every control on the audit page moves a score.
 
 Every assumption that goes beyond the brief is marked `ASSUMPTION` in the code with the section it extends. Policy thresholds live in `lib/scoring/config.ts`.
 
-The AI (Claude Sonnet 5.5, `/api/advice`) only explains. Every "+N points" is computed by re-running the engine with that step applied (`lib/advice/steps.ts`). The server recomputes the score and overwrites any number the model returns.
+## How Gemini is used
+
+Gemini (`lib/ai/gemini.ts`, model set by `GEMINI_MODEL`) supplies inputs and words, never the score:
+
+- **Car value:** base MSRP and 5-year depreciation for any year, make and model. The research brief's depreciation wins where it has data. `lib/vehicle/value.ts` applies the §4 formula, with a high-mileage fix: value fades to salvage between 200,000 and 300,000 miles, so a 900,000-mile car is worth scrap, not $9,000.
+- **Market-rate check:** a typical APR for the borrower's credit tier, blended into the rate model.
+- **Explanation:** the "Why these scores" text and step wording. Every "+N points" is computed by re-running the engine with that step applied (`lib/advice/steps.ts`). The server recomputes the scores and overwrites any number the model returns.
+
+Years, makes and models come from NHTSA vPIC (free, no key) via `/api/vehicle/catalog`.
 
 ## Nessie notes
 
@@ -43,12 +68,14 @@ Unbranded by default, following research brief §5: Toyota is named only to desc
 ## Layout
 
 ```
-app/            landing, setup/money, setup/car, audit, api/{profile,vehicle,advice}
-components/     stage1 (sliders, comparison, chart), stage2 (gauge, factors, rationale, plan), chrome
+app/            landing, setup/money, setup/car, audit, plan, api/{health,profile,profile/manual,vehicle,vehicle/catalog,advice}
+components/     stage1 (sliders, comparison, chart), stage2 (gauges, factors, rationale, plan), chrome (header, KeyGate)
 lib/scoring/    types, engine, loanMath, rateModel, bands, config, schema
-lib/nessie/     client, normalize, personas, seed, fixtures
+lib/ai/         Gemini client: car specs, market-rate check, structured JSON
+lib/env.ts      required API keys
+lib/nessie/     client (reads), write (seed + manual entry), normalize, personas, seed
 lib/vehicle/    NHTSA VIN decode, mock owner-records provider, depreciation value model
-lib/advice/     engine-priced steps, prompt, rule-based fallback
-tests/          research worked examples, monotonic properties, persona bands, step pricing
+lib/advice/     engine-priced steps, prompt
+tests/          research worked examples, monotonic properties, slider responsiveness, valuation, persona bands, step pricing
 docs/, design/  research brief and Claude Design artifact (references)
 ```

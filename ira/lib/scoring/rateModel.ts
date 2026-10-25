@@ -2,7 +2,7 @@
 // Base rates are Experian Q2 2026 used-vehicle APRs (§1). The adjustment sizes are
 // the brief's "informed starting values", not published constants.
 
-import type { CreditTier, LenderChannel } from "./types";
+import type { CreditTier, LenderChannel, LoanType, MarketRate } from "./types";
 
 export const BASE_USED_APR: Record<CreditTier, number> = {
   superPrime: 6.29,
@@ -73,6 +73,28 @@ export const CHANNEL_ADJ: Record<LenderChannel, number> = {
   financeCompany: 0.5,
 };
 
+/*
+ * ASSUMPTION (extends §8 S3): variable-rate loans start about 0.75 points under a
+ * fixed rate and lease buyouts price about 0.5 points over a standard refinance.
+ */
+export const LOAN_TYPE_ADJ: Record<LoanType, number> = {
+  fixed: 0,
+  variable: -0.75,
+  "cash-out": 0.25,
+  "lease-buyout": 0.5,
+};
+
+/*
+ * ASSUMPTION (extends §8 S3): Gemini's market-rate check is a sanity input, not
+ * the source of truth. Half of its gap to the research base rate (60 months, bank)
+ * is added, capped at ±1.5 points, so a stale or odd answer can't swing the score.
+ */
+export function marketAdj(tier: CreditTier, market?: MarketRate | null): number {
+  if (!market) return 0;
+  const gap = market.typicalApr - BASE_USED_APR[tier];
+  return Math.max(-1.5, Math.min(1.5, gap * 0.5));
+}
+
 export interface RateEstimate {
   apr: number;
   range: [number, number];
@@ -89,8 +111,11 @@ export function estimateApr(
   vehicleAgeYears: number,
   termMonths: number,
   channel: LenderChannel,
+  opts: { market?: MarketRate | null; loanType?: LoanType } = {},
 ): RateEstimate {
-  const core = BASE_USED_APR[tier] + adjLtv(ltv) + adjAge(vehicleAgeYears) + adjTerm(termMonths);
+  const core =
+    BASE_USED_APR[tier] + adjLtv(ltv) + adjAge(vehicleAgeYears) + adjTerm(termMonths) +
+    marketAdj(tier, opts.market) + LOAN_TYPE_ADJ[opts.loanType ?? "fixed"];
   const apr = core + CHANNEL_ADJ[channel];
   const lo = core + CHANNEL_ADJ.creditUnion - 0.75;
   const hi = core + CHANNEL_ADJ.financeCompany + 0.75;

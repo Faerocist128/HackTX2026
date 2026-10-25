@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Footer, Header } from "@/components/chrome/Header";
+import { Header } from "@/components/chrome/Header";
 import { brand } from "@/lib/brand";
 
 const HOW = [
@@ -18,7 +18,7 @@ export default function Landing() {
             <p className="hint font-semibold" style={{ color: "var(--redInk)" }}>Free, and takes about 2 minutes</p>
             <h1 className="mt-4 text-[40px] sm:text-[56px] leading-[1.05] font-extrabold tracking-tight">Is now the right time to refinance your car?</h1>
             <p className="mt-5 text-[19px] max-w-[520px]" style={{ color: "var(--ink2)" }}>
-              Get your free Refinance Score in 2 minutes. No credit check. No commitment.
+              Get two free scores in 2 minutes: how likely a lender is to say yes, and whether refinancing is worth it for you. No credit check. No commitment.
               {brand.owner && <> {brand.tagline}</>}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -26,14 +26,24 @@ export default function Landing() {
               <span className="hint">You can try it with a demo profile first.</span>
             </div>
           </div>
-          <div className="card p-7 rise max-w-[420px] w-full justify-self-center" style={{ animationDelay: "120ms" }} aria-label="Example score">
+          <div className="card p-7 rise max-w-[420px] w-full justify-self-center" style={{ animationDelay: "120ms" }} aria-label="Example scores">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-[18px]">Your score</span>
+              <span className="font-bold text-[18px]">Your scores</span>
               <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--chip)", color: "var(--ink2)" }}>EXAMPLE</span>
             </div>
-            <div className="text-[72px] font-extrabold leading-none mt-6" style={{ color: "var(--green)" }}>72</div>
-            <div className="mt-3 inline-flex px-3 py-1.5 rounded-full font-bold" style={{ background: "var(--greenSoft)", color: "var(--green)" }}>Good time to refinance</div>
-            <p className="mt-4 font-semibold">You&apos;d save $64/mo</p>
+            <div className="mt-5 grid grid-cols-2 gap-4">
+              {[
+                { t: "Approval odds", v: 84, l: "Likely to be approved" },
+                { t: "Refinance value", v: 74, l: "Worth refinancing" },
+              ].map((x) => (
+                <div key={x.t} className="rounded-2xl p-4" style={{ background: "var(--greenSoft)" }}>
+                  <div className="hint font-semibold">{x.t}</div>
+                  <div className="text-[48px] font-extrabold leading-none mt-2" style={{ color: "var(--green)" }}>{x.v}</div>
+                  <div className="mt-2 text-[14px] font-bold" style={{ color: "var(--green)" }}>{x.l}</div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 font-semibold">You&apos;d save about $1,600 after fees</p>
           </div>
         </section>
         <section id="how" className="mx-auto max-w-[1200px] px-4 sm:px-10 pb-16">
@@ -59,7 +69,6 @@ export default function Landing() {
           </ul>
         </section>
       </main>
-      <Footer />
     </>
   );
 }

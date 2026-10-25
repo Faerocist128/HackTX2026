@@ -74,7 +74,7 @@ a:hover { color: var(--ink); }
 
 .seg-group { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--chip); }
 .seg { flex: 1; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; background: transparent; color: var(--ink2); transition: background-color 180ms ease, box-shadow 180ms ease, color 180ms ease; }
-.seg[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.seg[aria-pressed="true"], .seg[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
 
 .field { width: 100%; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; }
 .field:focus { border-color: var(--ink2); outline: none; }

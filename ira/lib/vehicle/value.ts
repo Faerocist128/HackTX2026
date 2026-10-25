@@ -4,10 +4,13 @@
 //   m = 1 − β × (miles − 13,476·t) / 1,000
 // β = 0.35% per 1,000 miles and k = 0.85 are the brief's placeholders, not sourced
 // values. Condition multipliers are our assumption. Every value here is an estimate.
+//
+// In the app, MSRP and the 5-year depreciation come from Gemini for any car
+// (lib/ai/gemini.ts), anchored on the tables below where the research has data.
 
 import type { Condition } from "../scoring/types";
 
-const FHWA_MILES_PER_YEAR = 13_476;
+export const FHWA_MILES_PER_YEAR = 13_476;
 const BETA = 0.0035;
 export const TRADE_FACTOR = 0.85;
 
@@ -18,7 +21,8 @@ export const CONDITION_FACTOR: Record<Condition, number> = {
   poor: 0.78,
 };
 
-const delta = (fiveYearDepreciation: number) => -Math.log(1 - fiveYearDepreciation) / 5;
+export const delta = (fiveYearDepreciation: number) => -Math.log(1 - fiveYearDepreciation) / 5;
+export const fiveYearDepreciation = (d: number) => 1 - Math.exp(-5 * d);
 
 /** δ per year from iSeeCars 5-year depreciation (§4 table). */
 export const TOYOTA_DELTA: Record<string, number> = {
@@ -69,9 +73,14 @@ export function lookupMsrp(make: string, model: string): number | null {
   return MSRP_BASELINE[key(make)]?.[key(model)] ?? null;
 }
 
+/** The research δ for this model, or null when the brief has no data for it. */
+export function researchDelta(make: string, model: string): number | null {
+  if (key(make) === "toyota") return TOYOTA_DELTA[key(model)] ?? null;
+  return null;
+}
+
 export function deltaFor(make: string, model: string): number {
-  if (key(make) === "toyota") return TOYOTA_DELTA[key(model)] ?? ALL_VEHICLES_DELTA;
-  return ALL_VEHICLES_DELTA;
+  return researchDelta(make, model) ?? ALL_VEHICLES_DELTA;
 }
 
 export interface ValueEstimate {
@@ -89,16 +98,47 @@ export function vehicleAgeYears(modelYear: number, asOf = new Date()): number {
   return Math.max(0, (asOf.getTime() - start.getTime()) / (365.25 * 24 * 3600 * 1000));
 }
 
+/*
+ * ASSUMPTION (extends §4): the brief's linear mileage term m = 1 − β·excess/1000
+ * is only sensible near typical mileage; read literally it never reaches zero
+ * fast enough (a 900,000-mile car kept half its value under the old 0.5 floor).
+ * We keep the linear term up to 100,000 excess miles (m = 0.65), then decay it
+ * exponentially. Past 200,000 total miles lenders and buyers treat a car as near
+ * the end of its life, so value fades toward a salvage floor and reaches it at
+ * 300,000 miles. No car is worth less than its salvage value.
+ */
+const LINEAR_EXCESS_LIMIT = 100_000;
+const HIGH_MILES = 200_000;
+const SALVAGE_MILES = 300_000;
+
+export function mileageFactor(miles: number, ageYears: number): number {
+  const excess = miles - FHWA_MILES_PER_YEAR * ageYears;
+  if (excess <= LINEAR_EXCESS_LIMIT) return Math.min(1.15, 1 - (BETA * excess) / 1000);
+  const atLimit = 1 - (BETA * LINEAR_EXCESS_LIMIT) / 1000;
+  return atLimit * Math.exp(-(excess - LINEAR_EXCESS_LIMIT) / 60_000);
+}
+
+/** Scrap value: roughly curb weight × scrap price, scaled a little by the car's class. */
+export const salvageValue = (msrp: number) => Math.max(500, Math.min(1_500, 300 + 0.02 * msrp));
+
 export function estimateValue(
-  input: { make: string; model: string; year: number; mileage: number; condition: Condition; msrp?: number },
+  input: { make: string; model: string; year: number; mileage: number; condition: Condition; msrp?: number; delta?: number },
   asOf = new Date(),
 ): ValueEstimate {
   const msrp = input.msrp ?? lookupMsrp(input.make, input.model) ?? 32_000; // fallback: rough market-average base MSRP
   const t = vehicleAgeYears(input.year, asOf);
-  const d = deltaFor(input.make, input.model);
-  const m = Math.max(0.5, 1 - (BETA * (input.mileage - FHWA_MILES_PER_YEAR * t)) / 1000);
-  const retail = msrp * Math.exp(-d * t) * Math.min(m, 1.15) * CONDITION_FACTOR[input.condition];
-  return { retail, trade: retail * TRADE_FACTOR, msrp, ageYears: t, delta: d, isEstimate: true };
+  const d = input.delta ?? deltaFor(input.make, input.model);
+  const floor = salvageValue(msrp);
+  let retail = msrp * Math.exp(-d * t) * mileageFactor(input.mileage, t) * CONDITION_FACTOR[input.condition];
+  if (input.mileage >= SALVAGE_MILES) retail = floor;
+  else if (input.mileage > HIGH_MILES) {
+    const w = (input.mileage - HIGH_MILES) / (SALVAGE_MILES - HIGH_MILES);
+    retail = retail * (1 - w) + floor * w;
+  }
+  retail = Math.max(floor, retail);
+  // Salvage is what a scrapyard pays: it is already a trade-in price.
+  const trade = Math.max(floor, retail * TRADE_FACTOR);
+  return { retail, trade, msrp, ageYears: t, delta: d, isEstimate: true };
 }
 
 /** Pure §4 formula with an explicit age, used by tests against the worked examples. */

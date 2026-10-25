@@ -6,7 +6,7 @@
 const tfs = process.env.NEXT_PUBLIC_BRAND === "tfs";
 
 export const brand = {
-  product: "Refinance Audit",
+  product: "IRA",
   owner: tfs ? "Toyota Financial Services" : null,
   tagline: tfs
     ? "The car of the people helps people get ahead."

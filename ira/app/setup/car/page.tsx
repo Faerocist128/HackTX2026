@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/chrome/Header";
-import { useAuditStore, useHydrated } from "@/lib/store";
+import { useAuditStore, useHydrated, type CarDraft } from "@/lib/store";
 import type { Condition, MarketRate, Vehicle } from "@/lib/scoring/types";
 
 const CONDITIONS: { id: Condition; label: string; desc: string }[] = [
@@ -31,7 +31,7 @@ interface VehicleResponse {
 export default function CarPage() {
   const router = useRouter();
   const hydrated = useHydrated();
-  const { profile, personaId, vehicle: saved, setVehicle } = useAuditStore();
+  const { profile, personaId, vehicle: saved, carDraft, setCarDraft, setVehicle } = useAuditStore();
   const [mode, setMode] = useState<"vin" | "ymm">("ymm");
   const [vin, setVin] = useState("");
   const [year, setYear] = useState<number | "">("");
@@ -39,36 +39,49 @@ export default function CarPage() {
   const [model, setModel] = useState("");
   const [mileage, setMileage] = useState("");
   const [condition, setCondition] = useState<Condition>("good");
-  const [makes, setMakes] = useState<{ popular: string[]; other: string[] } | null>(null);
+  const [makes, setMakes] = useState<string[] | null>(null);
   const [models, setModels] = useState<string[] | null>(null);
   const [found, setFound] = useState<VehicleResponse | null>(null);
-  const [fromProfile, setFromProfile] = useState(false);
+  // Where the prefilled car came from, for the heading; null once the user edits it.
+  const [source, setSource] = useState<"saved" | "profile" | null>(null);
+  const [restored, setRestored] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // No profile yet → back to step 1.
   useEffect(() => { if (hydrated && !profile) router.replace("/setup/money"); }, [hydrated, profile, router]);
 
-  // Prefill from the saved car, or the persona's car on file.
+  // Prefill once: what you last typed here, else the car you saved, else the persona's car on file.
   useEffect(() => {
-    if (!hydrated) return;
-    const apply = (v: CarInput) => {
-      setYear(v.year); setMake(v.make); setModel(v.model); setMileage(String(v.mileage)); setCondition(v.condition);
-      if (v.vin) { setVin(v.vin); setMode("vin"); }
-      setFromProfile(true);
+    if (!hydrated || restored) return;
+    setRestored(true);
+    const applyDraft = (d: CarDraft) => {
+      setMode(d.mode); setVin(d.vin); setYear(d.year); setMake(d.make); setModel(d.model); setMileage(d.mileage); setCondition(d.condition);
     };
-    if (saved) { apply(saved); return; }
+    const applyCar = (v: CarInput, from: "saved" | "profile") => {
+      applyDraft({ mode: v.vin ? "vin" : "ymm", vin: v.vin ?? "", year: v.year, make: v.make, model: v.model, mileage: String(v.mileage), condition: v.condition });
+      setSource(from);
+    };
+    const isSaved = (d: CarDraft) =>
+      !!saved && d.year === saved.year && d.make === saved.make && d.model === saved.model && Number(d.mileage) === saved.mileage && d.condition === saved.condition;
+    if (carDraft) { applyDraft(carDraft); if (isSaved(carDraft)) setSource("saved"); return; }
+    if (saved) { applyCar(saved, "saved"); return; }
     if (personaId && personaId !== "manual")
-      fetch("/api/profile").then((r) => r.json()).then((rows: PersonaRow[]) => { const p = rows.find((r) => r.id === personaId); if (p?.vehicle) apply(p.vehicle); });
-  }, [hydrated, personaId, saved]);
+      fetch("/api/profile").then((r) => r.json()).then((rows: PersonaRow[]) => { const p = rows.find((r) => r.id === personaId); if (p?.vehicle) applyCar(p.vehicle, "profile"); });
+  }, [hydrated, restored, carDraft, saved, personaId]);
 
-  // Any edit by the user means the car is no longer "from your profile".
-  const edit = <T,>(set: (v: T) => void) => (v: T) => { setFromProfile(false); set(v); };
+  // Keep what's typed in the store, so Back and the stepper links don't lose it.
+  useEffect(() => {
+    if (restored) setCarDraft({ mode, vin, year, make, model, mileage, condition });
+  }, [restored, mode, vin, year, make, model, mileage, condition, setCarDraft]);
+
+  // Any edit by the user means the car is no longer the prefilled one.
+  const edit = <T,>(set: (v: T) => void) => (v: T) => { setSource(null); set(v); };
 
   // Makes for the chosen year (NHTSA).
   useEffect(() => {
     if (!year || makes) return;
-    fetch(`/api/vehicle/catalog?year=${year}`).then((r) => r.json()).then((j) => (j.error ? setError(j.error) : setMakes(j))).catch(() => setError("We couldn't load the list of cars. Try your VIN instead."));
+    fetch(`/api/vehicle/catalog?year=${year}`).then((r) => r.json()).then((j) => (j.error ? setError(j.error) : setMakes(j.makes))).catch(() => setError("We couldn't load the list of cars. Try your VIN instead."));
   }, [year, makes]);
 
   // Models for the chosen year and make (NHTSA).
@@ -92,7 +105,7 @@ export default function CarPage() {
   // Switching how you pick the car starts the lookup over.
   function switchMode(m: "vin" | "ymm") {
     if (m === mode) return;
-    setMode(m); setFound(null); setError(null); setFromProfile(false);
+    setMode(m); setFound(null); setError(null); setSource(null);
   }
 
   // Look the car up once its inputs are complete.
@@ -167,9 +180,8 @@ export default function CarPage() {
                 <label className="block"><span className="label">Make</span>
                   <select className="field mt-2" value={make} disabled={!year || !makes} onChange={(e) => { edit(setMake)(e.target.value); setModel(""); }}>
                     <option value="" disabled>{!year ? "Pick a year first" : makes ? "Choose…" : "Loading…"}</option>
-                    {makes && make && ![...makes.popular, ...makes.other].includes(make) && <option value={make}>{make}</option>}
-                    {makes && <optgroup label="Popular">{makes.popular.map((m) => <option key={m} value={m}>{m}</option>)}</optgroup>}
-                    {makes && <optgroup label="All other makes">{makes.other.map((m) => <option key={m} value={m}>{m}</option>)}</optgroup>}
+                    {makes && make && !makes.includes(make) && <option value={make}>{make}</option>}
+                    {makes?.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </label>
                 <label className="block"><span className="label">Model</span>
@@ -213,7 +225,7 @@ export default function CarPage() {
             {found ? (
               <div className="rise">
                 <p className="font-semibold" style={{ color: "var(--green)" }}>
-                  ✓ {fromProfile ? "Your car from your profile" : mode === "vin" ? "We found your car from its VIN" : "Here's your car"}
+                  ✓ {source === "saved" ? "Your saved car" : source === "profile" ? "Your car from your profile" : mode === "vin" ? "We found your car from its VIN" : "Here's your car"}
                 </p>
                 <div className="mt-4 rounded-2xl h-28 flex items-center justify-center" style={{ background: "var(--chip)" }} aria-hidden>
                   <svg width="88" height="44" viewBox="0 0 88 44" fill="none" stroke="var(--ink2)" strokeWidth="2.5" strokeLinejoin="round"><path d="M6 32h76v-8l-10-4-12-10H30L18 20 6 24z" /><circle cx="24" cy="34" r="6" fill="var(--chip)" /><circle cx="66" cy="34" r="6" fill="var(--chip)" /></svg>

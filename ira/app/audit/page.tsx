@@ -6,10 +6,7 @@ import { Header } from "@/components/chrome/Header";
 import { PaymentComparison } from "@/components/stage1/PaymentComparison";
 import { SavingsChart } from "@/components/stage1/SavingsChart";
 import { ScenarioSliders } from "@/components/stage1/ScenarioSliders";
-import { FactorBreakdown } from "@/components/stage2/FactorBreakdown";
-import { Rationale } from "@/components/stage2/Rationale";
 import { ScoreGauge } from "@/components/stage2/ScoreGauge";
-import { useAdvice } from "@/components/stage2/useAdvice";
 import { BAND_COLORS } from "@/lib/scoring/bands";
 import { scoreRefinance } from "@/lib/scoring/engine";
 import { useAuditStore, useHydrated, useScoreInput } from "@/lib/store";
@@ -30,7 +27,6 @@ export default function AuditPage() {
   // Synchronous, client-side: both scores move on every slider tick.
   const input = useScoreInput();
   const result = useMemo(() => (input ? scoreRefinance(input) : null), [input]);
-  const { advice, updating, error } = useAdvice(input);
 
   if (!hydrated || !input || !result || !profile || !vehicle || !scenario) {
     return (
@@ -83,14 +79,9 @@ export default function AuditPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2 items-start">
-          <FactorBreakdown result={result} />
-          <Rationale advice={advice} updating={updating} error={error} />
-        </div>
-
         <div className="mt-8 flex flex-wrap justify-between gap-4">
           <button className="btn btn-ghost" onClick={() => router.push("/setup/car")}>Back</button>
-          <button className="btn btn-primary" onClick={() => router.push("/plan")}>See my plan <span aria-hidden>→</span></button>
+          <button className="btn btn-primary" onClick={() => router.push("/scores")}>See what&apos;s driving your scores <span aria-hidden>→</span></button>
         </div>
       </main>
 

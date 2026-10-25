@@ -86,9 +86,11 @@ export type WorthFactorKey = "rateGap" | "npvSavings" | "lifetimeCost" | "breakE
 export type FactorKey = OddsFactorKey | WorthFactorKey;
 
 export interface Scale {
-  score: number; // 1–100, the sum of factor points
-  band: Band;
+  score: number; // 1–100: the sum of factor points, unless capped
+  band: Band; // always bandOf(score), so the dial, number and label agree
   factors: FactorBreakdown[];
+  /** Sum of factor points when a knockout capped the score below it. */
+  uncappedScore?: number;
 }
 
 export interface ScoreMetrics {
@@ -105,8 +107,12 @@ export interface ScoreMetrics {
   extraInterestSaved: number;
   /** Months sooner the extra monthly payment pays the new loan off. */
   extraMonthsSooner: number;
-  lifetimeInterestDelta: number; // positive = refinance costs less over its life, net of fees
-  breakEvenMonths: number | null;
+  /** Upfront fees + projected late fees − refunds on the loan the user built. */
+  newFees: number;
+  lifetimeInterestDelta: number; // = currentInterestLeft − newTotalInterest − newFees
+  breakEvenMonths: number | null; // term-matched (§6), used by the score
+  /** Months for the built loan's lower payment to repay the upfront fees; null if the payment isn't lower. */
+  breakEvenMonthsScenario: number | null;
   ltv: number;
   ltvRetail: number | null;
   pti: number;
@@ -115,6 +121,7 @@ export interface ScoreMetrics {
   likelyAprRange: [number, number];
   creditedApr: number; // the APR the economics actually use (target, floored at likely low)
   monthsToPayoff: number;
+  currentMonthsLeft: number;
 }
 
 export interface ScoreResult {

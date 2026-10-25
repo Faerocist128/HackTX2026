@@ -97,7 +97,14 @@ const BEHAVIOR = {
 
 type Raw = { share: number; raw: number; note: string };
 
-function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, Raw>, forceRed = false): Scale {
+/*
+ * ASSUMPTION (extends §8 S1): a knockout means most lenders would say no, so
+ * approval odds are capped at the top of the red band. The factor points still
+ * show what the score would be without the knockout.
+ */
+const KNOCKOUT_CAP = POLICY.bands.yellow - 1;
+
+function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, Raw>, cap = 100): Scale {
   const factors: FactorBreakdown[] = (Object.keys(weights) as K[]).map((key) => {
     const w = weights[key];
     const points = Math.round(clamp01(raw[key].share) * w * 10) / 10;
@@ -113,8 +120,9 @@ function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, R
     };
   });
   const total = factors.reduce((s, f) => s + f.points, 0);
-  const score = Math.max(1, Math.min(100, Math.round(total)));
-  return { score, band: forceRed ? "red" : bandOf(score), factors };
+  const sum = Math.max(1, Math.min(100, Math.round(total)));
+  const score = Math.min(sum, cap);
+  return { score, band: bandOf(score), factors, ...(score < sum ? { uncappedScore: sum } : {}) };
 }
 
 export function scoreRefinance(input: ScoreInput): ScoreResult {
@@ -170,8 +178,8 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     ? amortize(principal, creditedApr, scenario.termMonths, 0, behavior.interestFactor, behavior.feePerMonth)
     : scen;
   const lateFees = scen.totalPaid - (principal + scen.totalInterest);
-  const lifetimeInterestDelta =
-    current.totalInterest - scen.totalInterest - lateFees - scenario.upfrontCosts + scenario.refunds;
+  const newFees = scenario.upfrontCosts + lateFees - scenario.refunds;
+  const lifetimeInterestDelta = current.totalInterest - scen.totalInterest - newFees;
 
   const pti = profile.monthlyIncome > 0 ? newPayment / profile.monthlyIncome : 1;
   const dti =
@@ -365,7 +373,7 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     },
   };
 
-  const odds = scale(ODDS_WEIGHTS, oddsRaw, knockouts.length > 0);
+  const odds = scale(ODDS_WEIGHTS, oddsRaw, knockouts.length ? KNOCKOUT_CAP : 100);
   const worth = scale(WORTH_WEIGHTS, worthRaw);
 
   const metrics: ScoreMetrics = {
@@ -381,7 +389,9 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     extraInterestSaved: noExtra.totalInterest - scen.totalInterest,
     extraMonthsSooner: noExtra.months - scen.months,
     lifetimeInterestDelta,
+    newFees,
     breakEvenMonths: breakEven,
+    breakEvenMonthsScenario: breakEvenMonths(scenario.upfrontCosts, aOld, newPayment),
     ltv,
     ltvRetail,
     pti,
@@ -390,6 +400,7 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     likelyAprRange: likely.range,
     creditedApr,
     monthsToPayoff: scen.months,
+    currentMonthsLeft: current.months,
   };
 
   return {

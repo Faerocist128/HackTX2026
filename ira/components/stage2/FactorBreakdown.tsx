@@ -44,7 +44,9 @@ export function FactorBreakdown({ result }: { result: ScoreResult }) {
         })}
       </ul>
       <p className="hint mt-5 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
-        These {scale.factors.length} factors add up to your {SCALE_COPY[tab].title.toLowerCase()} score of {scale.score}. Same inputs, same score, every time.
+        {scale.uncappedScore !== undefined
+          ? <>These {scale.factors.length} factors add up to {scale.uncappedScore}, but your approval odds are capped at {scale.score} because most lenders won&apos;t refinance right now: {result.knockouts.map((k) => k.replace(/\.$/, "").toLowerCase()).join("; ")}. Fix that and your score can rise to {scale.uncappedScore}.</>
+          : <>These {scale.factors.length} factors add up to your {SCALE_COPY[tab].title.toLowerCase()} score of {scale.score}. Same inputs, same score, every time.</>}
       </p>
     </section>
   );

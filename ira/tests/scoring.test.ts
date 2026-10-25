@@ -123,6 +123,18 @@ describe("research verdicts (§8 S5, §9)", () => {
     expect(r.knockouts.length).toBeGreaterThanOrEqual(4);
     expect(r.odds.band).toBe("red");
   });
+
+  it("a knockout caps approval odds in the red band, so number, dial and label agree", () => {
+    const i = exampleA();
+    i.profile.latePayments12mo = 2; // one knockout, everything else strong
+    const r = scoreRefinance(i);
+    expect(r.knockouts).toHaveLength(1);
+    expect(r.odds.score).toBe(39);
+    expect(r.odds.band).toBe("red");
+    expect(r.odds.uncappedScore).toBeGreaterThan(39);
+    expect(r.odds.uncappedScore).toBe(Math.round(r.odds.factors.reduce((s, f) => s + f.points, 0)));
+    expect(scoreRefinance(exampleA()).odds.uncappedScore).toBeUndefined();
+  });
 });
 
 // ── Score properties ──────────────────────────────────────────────────────────
@@ -180,6 +192,15 @@ describe("score properties", () => {
     const r = scoreRefinance(withScenario(base, { extraMonthlyPayment: 200 }));
     expect(r.metrics.extraInterestSaved).toBeGreaterThan(1_000);
     expect(r.metrics.extraMonthsSooner).toBeGreaterThan(5);
+  });
+
+  it("comparison card adds up: overall savings = interest today − interest new − fees", () => {
+    for (const i of [exampleA(), exampleB()])
+      for (const patch of [{}, { termMonths: 84 }, { paymentBehavior: "late" as const }, { loanType: "cash-out" as const }, { extraMonthlyPayment: 200 }]) {
+        const m = scoreRefinance(withScenario(i, patch)).metrics;
+        expect(m.lifetimeInterestDelta).toBeCloseTo(m.currentInterestLeft - m.newTotalInterest - m.newFees, 6);
+        expect(m.currentMonthsLeft).toBe(i.profile.currentAutoLoan.monthsRemaining);
+      }
   });
 
   it("scores stay within 1–100", () => {

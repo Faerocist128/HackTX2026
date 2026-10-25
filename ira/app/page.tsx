@@ -11,10 +11,10 @@ const HOW = [
 export default function Landing() {
   return (
     <>
-      <Header right={<Link href="/setup/money" className="btn btn-ghost btn-sm">Start</Link>} />
+      <Header />
       <main>
-        <section className="mx-auto max-w-[1200px] px-4 sm:px-10 py-14 sm:py-20 grid gap-12 lg:grid-cols-[1.2fr_1fr] items-center">
-          <div className="rise">
+        <section className="mx-auto max-w-[1200px] px-4 sm:px-10 py-14 sm:py-20">
+          <div className="rise max-w-[760px]">
             <p className="hint font-semibold" style={{ color: "var(--redInk)" }}>Free, and takes about 2 minutes</p>
             <h1 className="mt-4 text-[40px] sm:text-[56px] leading-[1.05] font-extrabold tracking-tight">Is now the right time to refinance your car?</h1>
             <p className="mt-5 text-[19px] max-w-[520px]" style={{ color: "var(--ink2)" }}>
@@ -25,25 +25,6 @@ export default function Landing() {
               <Link href="/setup/money" className="btn btn-primary">Start my audit <span aria-hidden>→</span></Link>
               <span className="hint">You can try it with a demo profile first.</span>
             </div>
-          </div>
-          <div className="card p-7 rise max-w-[420px] w-full justify-self-center" style={{ animationDelay: "120ms" }} aria-label="Example scores">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[18px]">Your scores</span>
-              <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--chip)", color: "var(--ink2)" }}>EXAMPLE</span>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-4">
-              {[
-                { t: "Approval odds", v: 84, l: "Likely to be approved" },
-                { t: "Refinance value", v: 74, l: "Worth refinancing" },
-              ].map((x) => (
-                <div key={x.t} className="rounded-2xl p-4" style={{ background: "var(--greenSoft)" }}>
-                  <div className="hint font-semibold">{x.t}</div>
-                  <div className="text-[48px] font-extrabold leading-none mt-2" style={{ color: "var(--green)" }}>{x.v}</div>
-                  <div className="mt-2 text-[14px] font-bold" style={{ color: "var(--green)" }}>{x.l}</div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-4 font-semibold">You&apos;d save about $1,600 after fees</p>
           </div>
         </section>
         <section id="how" className="mx-auto max-w-[1200px] px-4 sm:px-10 pb-16">

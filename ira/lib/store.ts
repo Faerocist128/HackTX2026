@@ -6,11 +6,22 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { ManualInput } from "./nessie/personas";
 import { applyScenarioPatch, defaultScenario } from "./scoring/defaults";
 import { estimateApr } from "./scoring/rateModel";
-import type { FinancialProfile, MarketRate, Scenario, Vehicle } from "./scoring/types";
+import type { Condition, FinancialProfile, MarketRate, Scenario, Vehicle } from "./scoring/types";
 import { vehicleAgeYears } from "./vehicle/value";
 
 /** "manual" for "Use my own info", otherwise the demo persona id. */
 export type PersonId = string;
+
+/** What's typed on the car page, kept so Back and the stepper links don't lose it. */
+export interface CarDraft {
+  mode: "vin" | "ymm";
+  vin: string;
+  year: number | "";
+  make: string;
+  model: string;
+  mileage: string;
+  condition: Condition;
+}
 
 interface AuditState {
   personaId: PersonId | null;
@@ -21,6 +32,8 @@ interface AuditState {
   scenario: Scenario | null;
   initialScenario: Scenario | null;
   checkedSteps: string[];
+  carDraft: CarDraft | null;
+  setCarDraft: (d: CarDraft) => void;
   setProfile: (p: FinancialProfile, personaId: PersonId, manualInput?: ManualInput) => void;
   setVehicle: (v: Vehicle, market: MarketRate | null) => void;
   setScenario: (patch: Partial<Scenario>) => void;
@@ -54,6 +67,8 @@ export const useAuditStore = create<AuditState>()(
       scenario: null,
       initialScenario: null,
       checkedSteps: [],
+      carDraft: null,
+      setCarDraft: (carDraft) => set({ carDraft }),
       // Editing the same person keeps their car and slider choices; a new person starts over.
       setProfile: (profile, personaId, manualInput) => {
         const s = get();
@@ -69,6 +84,7 @@ export const useAuditStore = create<AuditState>()(
           manualInput: manualInput ?? (personaId === "manual" ? s.manualInput : null),
           vehicle: same ? s.vehicle : null,
           market: same ? s.market : null,
+          carDraft: same ? s.carDraft : null,
           scenario: null,
           initialScenario: null,
           checkedSteps: [],

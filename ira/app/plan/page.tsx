@@ -35,7 +35,7 @@ export default function PlanPage() {
   if (!hydrated || !input || !result) {
     return (
       <>
-        <Header step={4} />
+        <Header step={5} />
         <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-10" aria-busy><div className="card h-[360px] p-6"><div className="shimmer w-1/3" /></div></main>
       </>
     );
@@ -44,7 +44,7 @@ export default function PlanPage() {
   const ready = result.odds.band === "green" && result.worth.band === "green";
   return (
     <>
-      <Header step={4} />
+      <Header step={5} />
       <main className="mx-auto w-full max-w-[1100px] px-4 sm:px-10 py-8 sm:py-10 grid gap-8 lg:grid-cols-[1.5fr_1fr] items-start">
         <div className="min-w-0">
           <h1 className="text-[32px] sm:text-[40px] font-extrabold leading-tight">Your plan</h1>
@@ -59,7 +59,7 @@ export default function PlanPage() {
           <ScoreGauge scale="odds" score={result.odds.score} band={result.odds.band} verdict={result.verdict} preview={preview?.odds} />
           <ScoreGauge scale="worth" score={result.worth.score} band={result.worth.band} verdict={result.verdict} preview={preview?.worth} />
           <div className="flex justify-between gap-4">
-            <button className="btn btn-ghost" onClick={() => router.push("/audit")}>← Back to sliders</button>
+            <button className="btn btn-ghost" onClick={() => router.push("/scores")}>← Back to your scores</button>
           </div>
         </aside>
       </main>

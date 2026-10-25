@@ -25,7 +25,11 @@ export function buildUserMessage(input: ScoreInput, result: ScoreResult, steps: 
   const r = (x: number, d = 0) => Number(x.toFixed(d));
   const payload = {
     firstName: profile.name.split(" ")[0],
-    approvalOdds: { score: result.odds.score, band: result.odds.band },
+    approvalOdds: {
+      score: result.odds.score,
+      band: result.odds.band,
+      ...(result.odds.uncappedScore !== undefined && { capNote: `Capped at ${result.odds.score} because of the knockouts; without them it would be ${result.odds.uncappedScore}.` }),
+    },
     refinanceValue: { score: result.worth.score, band: result.worth.band },
     verdict: result.verdict,
     verdictLabel: VERDICT_COPY[result.verdict].chip,

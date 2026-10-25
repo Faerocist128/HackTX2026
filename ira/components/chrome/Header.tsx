@@ -5,6 +5,7 @@ const STEPS = [
   { label: "Your money", href: "/setup/money" },
   { label: "Your car", href: "/setup/car" },
   { label: "Try it out", href: "/audit" },
+  { label: "Your scores", href: "/scores" },
   { label: "Your plan", href: "/plan" },
 ];
 
@@ -28,10 +29,10 @@ export function Header({ step = 0, right }: { step?: number; right?: React.React
       <div className="mx-auto max-w-[1200px] px-4 sm:px-10 pt-4 pb-3">
         <div className="flex items-center justify-between gap-4">
           <Logo />
-          {step > 0 ? <span className="hint">Step {Math.min(step, 4)} of 4</span> : right}
+          {step > 0 ? <span className="hint">Step {Math.min(step, STEPS.length)} of {STEPS.length}</span> : right}
         </div>
         {step > 0 && (
-          <ol className="mt-4 grid grid-cols-4 gap-2 sm:gap-3" aria-label="Progress">
+          <ol className="mt-4 grid grid-cols-5 gap-2 sm:gap-3" aria-label="Progress">
             {STEPS.map(({ label, href }, i) => {
               const n = i + 1;
               const done = n < step;

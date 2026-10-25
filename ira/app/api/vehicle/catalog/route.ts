@@ -7,12 +7,10 @@ const VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles";
 const TTL_MS = 24 * 3600_000;
 const cache = new Map<string, { at: number; data: string[] }>();
 
-/** Brands sold new in the US in recent years, listed first so the picker stays usable. */
-const POPULAR_MAKES = [
-  "Acura", "Alfa Romeo", "Audi", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Fiat",
-  "Ford", "Genesis", "GMC", "Honda", "Hyundai", "Infiniti", "Jaguar", "Jeep", "Kia", "Land Rover",
-  "Lexus", "Lincoln", "Lucid", "Maserati", "Mazda", "Mercedes-Benz", "Mini", "Mitsubishi", "Nissan",
-  "Polestar", "Porsche", "Ram", "Rivian", "Subaru", "Tesla", "Toyota", "Volkswagen", "Volvo",
+/** The 20 best-selling brands in the US, A–Z. VIN lookup still works for any make. */
+const MAKES = [
+  "Audi", "BMW", "Buick", "Chevrolet", "Dodge", "Ford", "GMC", "Honda", "Hyundai", "Jeep",
+  "Kia", "Lexus", "Mazda", "Mercedes-Benz", "Nissan", "Ram", "Subaru", "Tesla", "Toyota", "Volkswagen",
 ];
 
 async function cached(key: string, load: () => Promise<string[]>): Promise<string[]> {
@@ -30,10 +28,8 @@ async function vpic(path: string, field: string): Promise<string[]> {
   return [...new Set((json.Results ?? []).map((r) => r[field]?.trim()).filter(Boolean))];
 }
 
-const title = (s: string) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-
 /**
- * GET /api/vehicle/catalog?year=2021 → { popular, other } makes for that year.
+ * GET /api/vehicle/catalog?year=2021 → { makes }.
  * GET /api/vehicle/catalog?year=2021&make=Toyota → { models }.
  */
 export async function GET(req: Request) {
@@ -54,12 +50,7 @@ export async function GET(req: Request) {
       });
       return NextResponse.json({ models });
     }
-    const all = await cached("makes", async () => {
-      const lists = await Promise.all(["car", "multipurpose passenger vehicle (mpv)", "truck"].map((t) => vpic(`/GetMakesForVehicleType/${encodeURIComponent(t)}`, "MakeName")));
-      return [...new Set(lists.flat().map(title))].sort((a, b) => a.localeCompare(b));
-    });
-    const popularLower = new Set(POPULAR_MAKES.map((m) => m.toLowerCase()));
-    return NextResponse.json({ popular: POPULAR_MAKES, other: all.filter((m) => !popularLower.has(m.toLowerCase())) });
+    return NextResponse.json({ makes: MAKES });
   } catch (err) {
     console.warn("catalog: NHTSA failed", err);
     return NextResponse.json({ error: "We couldn't load the list of cars. Try again, or use your VIN." }, { status: 502 });

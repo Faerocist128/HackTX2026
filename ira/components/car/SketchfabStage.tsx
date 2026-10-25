@@ -90,12 +90,12 @@ export default function SketchfabStage({ spec, className }: { spec: CarSpec; cla
         ref={frame}
         title={`3D model of a ${spec.label.toLowerCase()}`}
         allow="autoplay; fullscreen; xr-spatial-tracking"
-        className={`absolute inset-x-0 bottom-0 top-[76px] w-full h-[calc(100%-76px)] border-0 transition-opacity duration-700 ${shown ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-700 ${shown ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         style={{ maskImage: EDGE_FADE, WebkitMaskImage: EDGE_FADE }}
       />
       {spec.credit && (
-        <div className="absolute bottom-3 right-4 z-10 max-w-[45%] truncate text-[11px]" style={{ color: "var(--ink2)" }}>
-          {spec.credit.url ? <a href={spec.credit.url} target="_blank" rel="noreferrer" className="underline">{spec.credit.text}</a> : spec.credit.text}, via Sketchfab
+        <div className="absolute top-3 right-4 z-20 max-w-[40%] truncate text-[11px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+          {spec.credit.url ? <a href={spec.credit.url} target="_blank" rel="noreferrer" className="underline" style={{ color: "inherit" }}>{spec.credit.text}</a> : spec.credit.text}, via Sketchfab
         </div>
       )}
     </div>

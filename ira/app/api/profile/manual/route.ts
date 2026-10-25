@@ -32,6 +32,6 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof MissingKeyError) return NextResponse.json({ error: err.message }, { status: 503 });
     console.warn("manual profile: Nessie failed", (err as Error).message);
-    return NextResponse.json({ error: "We couldn't save your info to Nessie. Try again." }, { status: 502 });
+    return NextResponse.json({ error: "We couldn't save your info to the bank. Try again." }, { status: 502 });
   }
 }

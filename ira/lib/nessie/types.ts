@@ -1,4 +1,4 @@
-// Raw Capital One Nessie shapes (only the fields we use).
+// Raw Nessie shapes (only the fields we use).
 
 export interface NessieCustomer {
   _id: string;

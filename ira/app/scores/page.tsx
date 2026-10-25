@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { Header } from "@/components/chrome/Header";
+import { PageBand } from "@/components/chrome/PageBand";
 import { FactorBreakdown } from "@/components/stage2/FactorBreakdown";
 import { Rationale } from "@/components/stage2/Rationale";
 import { ScoreGauge } from "@/components/stage2/ScoreGauge";
@@ -28,7 +29,7 @@ export default function ScoresPage() {
     return (
       <>
         <Header step={4} />
-        <main className="mx-auto w-full max-w-[1200px] px-4 sm:px-10 py-10" aria-busy><div className="card h-[360px] p-6"><div className="shimmer w-1/3" /></div></main>
+        <main className="mx-auto w-full max-w-[1248px] px-4 sm:px-8 py-10" aria-busy><div className="card h-[360px] p-6"><div className="shimmer w-1/3" /></div></main>
       </>
     );
   }
@@ -36,17 +37,16 @@ export default function ScoresPage() {
   return (
     <>
       <Header step={4} />
-      <main className="mx-auto w-full max-w-[1200px] px-4 sm:px-10 py-8 sm:py-10">
-        <h1 className="text-[32px] sm:text-[40px] font-extrabold leading-tight">Your scores</h1>
-        <p className="mt-1" style={{ color: "var(--ink2)" }}>What&apos;s behind each score, for the loan you set up on the last page.</p>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <ScoreGauge scale="odds" score={result.odds.score} band={result.odds.band} verdict={result.verdict} />
-          <ScoreGauge scale="worth" score={result.worth.score} band={result.worth.band} verdict={result.verdict} />
-        </div>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-2 items-start">
-          <Rationale advice={advice} updating={updating} error={error} />
+      <PageBand eyebrow="Step 4 of 5" title="Your scores">What&apos;s behind each score, for the loan you set up on the last page.</PageBand>
+      <main className="mx-auto w-full max-w-[1248px] px-4 sm:px-8 py-8 sm:py-10">
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] items-start">
+          <div className="space-y-6 min-w-0 lg:sticky lg:top-24">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ScoreGauge scale="odds" score={result.odds.score} band={result.odds.band} verdict={result.verdict} compact />
+              <ScoreGauge scale="worth" score={result.worth.score} band={result.worth.band} verdict={result.verdict} compact />
+            </div>
+            <Rationale advice={advice} updating={updating} error={error} />
+          </div>
           <FactorBreakdown result={result} />
         </div>
 

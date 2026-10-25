@@ -8,7 +8,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { buildCar, disposeObject } from "./buildCar";
 import type { CarSpec } from "@/lib/vehicle/models3d";
 
-interface Props { spec: CarSpec; className?: string }
+interface Props { spec: CarSpec; className?: string; hint?: boolean }
 
 interface Stage {
   spec: CarSpec | null;
@@ -20,7 +20,7 @@ interface Stage {
 }
 
 // Interactive turntable for one car: drag to spin, auto-rotates when idle.
-export default function CarStage({ spec, className }: Props) {
+export default function CarStage({ spec, className, hint = true }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const stage = useRef<Stage | null>(null);
   const [dragged, setDragged] = useState(false);
@@ -152,14 +152,14 @@ export default function CarStage({ spec, className }: Props) {
     <div className={`relative ${className ?? ""}`}>
       <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" role="img" aria-label={`3D model of a ${spec.label.toLowerCase()}. Drag to spin.`} />
       {spec.credit && (
-        <div className="absolute bottom-3 right-4 z-10 max-w-[45%] truncate text-[11px]" style={{ color: "var(--ink2)" }}>
-          {spec.credit.url ? <a href={spec.credit.url} target="_blank" rel="noreferrer" className="underline">{spec.credit.text}</a> : spec.credit.text}
+        <div className="absolute top-3 right-4 z-20 max-w-[40%] truncate text-[11px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+          {spec.credit.url ? <a href={spec.credit.url} target="_blank" rel="noreferrer" className="underline" style={{ color: "inherit" }}>{spec.credit.text}</a> : spec.credit.text}
         </div>
       )}
-      <div className={`pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 hint flex items-center gap-1.5 rounded-full px-3 py-1 transition-opacity duration-500 ${dragged ? "opacity-0" : "opacity-100"}`} style={{ background: "var(--card)", boxShadow: "var(--shadow)" }}>
+      {hint && <div className={`pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-20 hint flex items-center gap-1.5 rounded-full px-3 py-1 transition-opacity duration-500 ${dragged ? "opacity-0" : "opacity-100"}`} style={{ background: "var(--card)", boxShadow: "var(--shadow)" }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M3 12a9 4 0 0 0 18 0" /><path d="M18 9l3 3-3 3" /></svg>
         Drag to spin
-      </div>
+      </div>}
     </div>
   );
 }

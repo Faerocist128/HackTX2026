@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 interface Health { ok: boolean; missing: string[]; nessieError: string | null }
 
 const WHERE: Record<string, { what: string; get: string }> = {
-  NESSIE_API_KEY: { what: "Capital One Nessie (your bank data)", get: "http://api.nessieisreal.com — sign in and copy your API key" },
+  NESSIE_API_KEY: { what: "Nessie bank API (your bank data)", get: "http://api.nessieisreal.com — sign in and copy your API key" },
   GEMINI_API_KEY: { what: "Google Gemini (car values and explanations)", get: "https://aistudio.google.com/apikey" },
 };
 
@@ -22,12 +22,12 @@ export function KeyGate({ children }: { children: React.ReactNode }) {
   if (health.ok) return <>{children}</>;
   return (
     <main className="mx-auto w-full max-w-[720px] px-4 sm:px-10 py-14">
-      <h1 className="text-[34px] font-extrabold">Setup needed</h1>
+      <h1 className="text-[34px] font-semibold">Setup needed</h1>
       <p className="mt-2" style={{ color: "var(--ink2)" }}>IRA needs its API keys before it can run.</p>
       {health.missing.length > 0 && (
         <section className="card p-6 mt-6">
-          <h2 className="text-[19px] font-bold">Add {health.missing.length === 1 ? "this key" : "these keys"} to <code>ira/.env.local</code></h2>
-          <pre className="mt-4 rounded-2xl p-4 overflow-x-auto text-[15px]" style={{ background: "var(--chip)" }}>{health.missing.map((k) => `${k}=your-key-here`).join("\n")}</pre>
+          <h2 className="text-[19px] font-semibold">Add {health.missing.length === 1 ? "this key" : "these keys"} to <code>ira/.env.local</code></h2>
+          <pre className="mt-4 rounded-lg p-4 overflow-x-auto text-[15px]" style={{ background: "var(--chip)" }}>{health.missing.map((k) => `${k}=your-key-here`).join("\n")}</pre>
           <ul className="mt-4 space-y-2">
             {health.missing.map((k) => (
               <li key={k}><span className="font-bold">{k}</span>: {WHERE[k]?.what}. Get one at {WHERE[k]?.get}.</li>

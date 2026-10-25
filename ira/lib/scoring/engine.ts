@@ -104,7 +104,23 @@ type Raw = { share: number; raw: number; note: string };
  */
 const KNOCKOUT_CAP = POLICY.bands.yellow - 1;
 
-function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, Raw>, cap = 100): Scale {
+/*
+ * ASSUMPTION (extends §8 S3; plan "target vs. likely"): approval odds are the
+ * odds of a yes *at the rate asked for*. Underwriting factors decide whether a
+ * lender says yes at all; asking for less than lenders offer this borrower makes
+ * that yes less likely, steeply once the ask is under the likely range.
+ */
+export function rateAskMultiplier(targetApr: number, likely: { apr: number; range: [number, number] }): number {
+  const [lo] = likely.range;
+  if (targetApr >= likely.apr) return 1;
+  if (targetApr >= lo) {
+    const t = likely.apr > lo ? (likely.apr - targetApr) / (likely.apr - lo) : 1;
+    return 1 - t * (1 - POLICY.rateAskAtRangeLow);
+  }
+  return POLICY.rateAskAtRangeLow * Math.exp(-(lo - targetApr) / POLICY.rateAskDecayPoints);
+}
+
+function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, Raw>, cap = 100, multiplier = 1): Scale {
   const factors: FactorBreakdown[] = (Object.keys(weights) as K[]).map((key) => {
     const w = weights[key];
     const points = Math.round(clamp01(raw[key].share) * w * 10) / 10;
@@ -121,8 +137,14 @@ function scale<K extends FactorKey>(weights: Record<K, number>, raw: Record<K, R
   });
   const total = factors.reduce((s, f) => s + f.points, 0);
   const sum = Math.max(1, Math.min(100, Math.round(total)));
-  const score = Math.min(sum, cap);
-  return { score, band: bandOf(score), factors, ...(score < sum ? { uncappedScore: sum } : {}) };
+  const score = Math.max(1, Math.round(Math.min(sum, cap) * multiplier));
+  return {
+    score,
+    band: bandOf(score),
+    factors,
+    ...(score < sum ? { uncappedScore: sum } : {}),
+    ...(multiplier < 1 ? { rateAskMultiplier: Math.round(multiplier * 100) / 100 } : {}),
+  };
 }
 
 export function scoreRefinance(input: ScoreInput): ScoreResult {
@@ -373,7 +395,8 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     },
   };
 
-  const odds = scale(ODDS_WEIGHTS, oddsRaw, knockouts.length ? KNOCKOUT_CAP : 100);
+  const rateAsk = rateAskMultiplier(scenario.targetApr, likely);
+  const odds = scale(ODDS_WEIGHTS, oddsRaw, knockouts.length ? KNOCKOUT_CAP : 100, rateAsk);
   const worth = scale(WORTH_WEIGHTS, worthRaw);
 
   const metrics: ScoreMetrics = {
@@ -409,19 +432,25 @@ export function scoreRefinance(input: ScoreInput): ScoreResult {
     verdict,
     approval,
     knockouts,
-    reasons: rankedReasons([...odds.factors, ...worth.factors], knockouts),
+    reasons: rankedReasons([...odds.factors, ...worth.factors], [
+      ...knockouts,
+      ...(rateAsk < 0.9
+        ? [`Lenders rarely offer less than ${likely.range[0].toFixed(1)}% to someone in your position, so asking for ${scenario.targetApr.toFixed(1)}% lowers your approval odds.`]
+        : []),
+    ]),
     metrics,
     checkAgainMonths,
   };
 }
 
 /** §8 "Reason codes": top factors in plain language, ranked by points lost. */
-function rankedReasons(factors: FactorBreakdown[], knockouts: string[]): string[] {
+/** `leading` reasons (knockouts, then a low rate ask) come before the factors. */
+function rankedReasons(factors: FactorBreakdown[], leading: string[]): string[] {
   const lost = [...factors]
     .filter((f) => f.maxPoints - f.points > 0.5)
     .sort((a, b) => b.maxPoints - b.points - (a.maxPoints - a.points))
     .map((f) => f.note);
-  return [...knockouts, ...lost].slice(0, 4);
+  return [...leading, ...lost].slice(0, 4);
 }
 
 /** §3 seasoning matrix: months of on-time payment until risk converges with the next tier. */

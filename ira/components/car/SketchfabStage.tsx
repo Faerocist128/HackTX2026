@@ -7,7 +7,10 @@ import { useEffect, useRef, useState } from "react";
 const API_SRC = "https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js";
 
 // Viewer options: start and spin right away, keep the wheel scrolling the page,
-// and hide every button and label Sketchfab lets us hide.
+// and hide every button and label Sketchfab lets us hide. The ui_* switches only
+// work on models whose owner pays for Sketchfab, so CROP also crops off the
+// title bar, the button row and the "click & hold" hint (credits are in the
+// site footer instead).
 const OPTIONS = {
   autostart: 1, preload: 1, autospin: 0.25, scrollwheel: 0, transparent: 1, dnt: 1,
   ui_theme: "dark", ui_hint: 0, ui_help: 0, ui_settings: 0, ui_vr: 0, ui_ar: 0,
@@ -16,6 +19,7 @@ const OPTIONS = {
 };
 const ZOOM = 0.8; // after recentering, keep this fraction of the camera distance
 const INTRO_MS = 1500; // Sketchfab's camera intro after "viewerready"
+const CROP = { top: 72, bottom: 144 }; // px of iframe hidden above and below the stage
 // Fade the viewer's edges to black so it melts into the black stage.
 const EDGE_FADE = "radial-gradient(ellipse 62% 72% at 50% 50%, #000 62%, transparent 100%)";
 
@@ -49,12 +53,13 @@ interface Props {
   uid: string;          // Sketchfab model id
   label: string;        // what the model is, for screen readers
   zoom?: number;        // camera distance after framing (1 = whole car, smaller = closer)
+  lift?: number;        // raise the car on screen, as a fraction of the camera distance
   className?: string;
 }
 
 // A Sketchfab model on a black stage with Sketchfab's chrome hidden. The stage
 // stays black until the model is ready, then the model fades in.
-export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: Props) {
+export default function SketchfabStage({ uid, label, zoom = ZOOM, lift = 0, className }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState<string | null>(null);
 
@@ -75,7 +80,10 @@ export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: P
             const frameCar = () => api.getCameraLookAt((err, cam) => {
               if (!err) {
                 const pos = cam.position.map((p, i) => cam.target[i] + (p - cam.target[i]) * zoom) as Vec3;
-                api.setCameraLookAt(pos, cam.target, 0);
+                // Sketchfab is z-up: sliding the camera and its target down raises the car on screen.
+                const drop = lift * Math.hypot(...pos.map((p, i) => p - cam.target[i]));
+                const down = (v: Vec3): Vec3 => [v[0], v[1], v[2] - drop];
+                api.setCameraLookAt(down(pos), down(cam.target), 0);
               }
               if (live) setTimeout(() => setReady(uid), 150);
             });
@@ -86,17 +94,17 @@ export default function SketchfabStage({ uid, label, zoom = ZOOM, className }: P
       });
     }).catch(() => { /* leave the stage empty */ });
     return () => { live = false; };
-  }, [uid, zoom]);
+  }, [uid, zoom, lift]);
 
   return (
-    <div className={`relative bg-black ${className ?? ""}`}>
+    <div className={`relative overflow-hidden bg-black ${className ?? ""}`}>
       <iframe
         key={uid}
         ref={frame}
         title={`3D model of a ${label}`}
         allow="autoplay; fullscreen; xr-spatial-tracking"
-        className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-700 ${ready === uid ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-        style={{ maskImage: EDGE_FADE, WebkitMaskImage: EDGE_FADE }}
+        className={`absolute inset-x-0 w-full border-0 transition-opacity duration-700 ${ready === uid ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        style={{ top: -CROP.top, height: `calc(100% + ${CROP.top + CROP.bottom}px)`, maskImage: EDGE_FADE, WebkitMaskImage: EDGE_FADE }}
       />
     </div>
   );

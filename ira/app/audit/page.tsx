@@ -9,6 +9,7 @@ import { SavingsChart } from "@/components/stage1/SavingsChart";
 import { ScenarioSliders } from "@/components/stage1/ScenarioSliders";
 import { ScoreGauge } from "@/components/stage2/ScoreGauge";
 import { BAND_COLORS, displayLabel, SCALE_COPY } from "@/lib/scoring/bands";
+import { POLICY } from "@/lib/scoring/config";
 import { scoreRefinance } from "@/lib/scoring/engine";
 import type { ScoreResult } from "@/lib/scoring/types";
 import { useAuditStore, useHydrated, useScoreInput } from "@/lib/store";
@@ -76,7 +77,10 @@ export default function AuditPage() {
   }
 
   const knockedOut = result.knockouts.length > 0;
-  const uncapped = result.odds.uncappedScore;
+  // Odds without the knockout cap, but still with the rate-ask discount the sliders control.
+  const uncapped = result.odds.uncappedScore !== undefined
+    ? Math.max(1, Math.round(result.odds.uncappedScore * (result.odds.rateAskMultiplier ?? 1)))
+    : undefined;
   // Cash-out adds to what's owed, so it alone can trip the 130% value limit; then the sliders can help.
   const cashOutCauses =
     knockedOut && scenario.loanType === "cash-out" &&
@@ -97,8 +101,8 @@ export default function AuditPage() {
             <p className="mt-2" style={{ color: "var(--ink)" }}>
               {cashOutCauses
                 ? <>The cash-out adds to what you&apos;d owe. Switch the loan type under More options to drop it.</>
-                : <>Nothing on this page changes {result.knockouts.length > 1 ? "these" : "that"}, so your approval odds stay at {result.odds.score}
-                    {uncapped !== undefined && <> (without {result.knockouts.length > 1 ? "them" : "it"}, they&apos;d be about {uncapped})</>}.
+                : <>Nothing on this page changes {result.knockouts.length > 1 ? "these" : "that"}, so your approval odds can&apos;t go above {POLICY.bands.yellow - 1}
+                    {uncapped !== undefined && uncapped > result.odds.score && <> (without {result.knockouts.length > 1 ? "them" : "it"}, they&apos;d be about {uncapped})</>}.
                     The sliders still show what refinancing would be worth once you qualify
                     {result.checkAgainMonths ? <>, and it&apos;s worth checking again in about {result.checkAgainMonths} months</> : null}.</>}
             </p>

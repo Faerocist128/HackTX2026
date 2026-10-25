@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateJson } from "@/lib/ai/gemini";
+import { generateJson, isRateLimited } from "@/lib/ai/gemini";
 import { engineSteps, withAiWording } from "@/lib/advice/engineSteps";
 import { buildUserMessage, SYSTEM_PROMPT } from "@/lib/advice/prompt";
 import { candidateSteps } from "@/lib/advice/steps";
@@ -38,6 +38,7 @@ export async function POST(req: Request) {
     if (req.signal.aborted) return new NextResponse(null, { status: 499 });
     if (err instanceof MissingKeyError) return NextResponse.json({ error: err.message }, { status: 503 });
     console.warn("advice: Gemini failed", err);
+    if (isRateLimited(err)) return NextResponse.json({ error: "Gemini's per-minute limit is used up. Wait a few seconds and try again." }, { status: 429 });
     return NextResponse.json({ error: "Gemini couldn't write your explanation. Try again in a moment." }, { status: 502 });
   }
 }

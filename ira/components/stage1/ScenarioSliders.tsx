@@ -95,7 +95,7 @@ export function ScenarioSliders({ scenario, current, result, onChange, onReset }
           mark={{ value: current.apr, label: `Your loan today: ${current.apr}%` }} onChange={(v) => onChange({ targetApr: Math.round(v * 10) / 10 })} />
         {below && (
           <p className="mt-1 text-[14px] font-semibold" style={{ color: "var(--amber)" }}>
-            Your scores use {result.metrics.creditedApr.toFixed(1)}%, the best rate you&apos;d likely get. Lenders are unlikely to offer less.
+            Lenders rarely offer less than {lo.toFixed(1)}%, so asking for {scenario.targetApr.toFixed(1)}% lowers your approval odds. Savings are still figured at {result.metrics.creditedApr.toFixed(1)}%.
           </p>
         )}
         <Range label="Pay extra toward the loan each month (optional)" tip="An optional amount you choose to pay on top of the required payment. All of it goes to what you owe, so you finish sooner and pay less interest. Your required payment doesn't change." value={scenario.extraMonthlyPayment} min={0} max={500} step={25}

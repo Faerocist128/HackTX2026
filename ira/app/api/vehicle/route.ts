@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { lookupVehicleSpecs, marketRateCheck } from "@/lib/ai/gemini";
+import { isRateLimited, lookupVehicleSpecs, marketRateCheck } from "@/lib/ai/gemini";
 import { MissingKeyError } from "@/lib/env";
 import { TIER_LABEL } from "@/lib/scoring/rateModel";
 import { decodeVin, mockToyotaOwnerRecords } from "@/lib/vehicle/decode";
@@ -61,6 +61,9 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof MissingKeyError) return NextResponse.json({ error: err.message }, { status: 503 });
     console.warn("vehicle: Gemini failed", err);
-    return NextResponse.json({ error: "We couldn't price this car with Gemini right now. Try again in a moment." }, { status: 502 });
+    const error = isRateLimited(err)
+      ? `Found your ${ymm.year} ${ymm.make} ${ymm.model}, but Gemini's per-minute limit is used up, so we can't price it yet. Wait a few seconds and try again.`
+      : `Found your ${ymm.year} ${ymm.make} ${ymm.model}, but Gemini couldn't price it right now. Try again in a moment.`;
+    return NextResponse.json({ error }, { status: isRateLimited(err) ? 429 : 502 });
   }
 }

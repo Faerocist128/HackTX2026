@@ -145,8 +145,10 @@ describe("score properties", () => {
   it("factor points sum to each score and weights to 100", () => {
     for (const i of [exampleA(), exampleB()]) {
       for (const sc of scales(scoreRefinance(i))) {
-        const sum = sc.factors.reduce((s, f) => s + f.points, 0);
-        expect(Math.round(sum)).toBe(sc.score);
+        const sum = Math.round(sc.factors.reduce((s, f) => s + f.points, 0));
+        // Odds may sit below the sum when the target APR is under the likely rate.
+        expect(sc.uncappedScore ?? sc.score).toBe(sum);
+        expect(sc.score).toBe(Math.max(1, Math.round(sum * (sc.rateAskMultiplier ?? 1))));
         expect(sc.factors.reduce((s, f) => s + f.maxPoints, 0)).toBe(100);
       }
     }
@@ -156,15 +158,45 @@ describe("score properties", () => {
     expect(scoreRefinance(exampleA())).toEqual(scoreRefinance(exampleA()));
   });
 
-  it("lower target APR never lowers either score", () => {
+  it("lower target APR never lowers refinance value", () => {
     for (const base of [exampleA(), exampleB()]) {
-      let prev = [-1, -1];
+      let prev = -1;
       for (let apr = 20; apr >= 2; apr -= 0.25) {
         const r = scoreRefinance(withScenario(base, { targetApr: apr }));
-        expect(r.odds.score).toBeGreaterThanOrEqual(prev[0]);
-        expect(r.worth.score).toBeGreaterThanOrEqual(prev[1]);
-        prev = [r.odds.score, r.worth.score];
+        expect(r.worth.score).toBeGreaterThanOrEqual(prev);
+        prev = r.worth.score;
       }
+    }
+  });
+
+  it("approval odds peak at the likely rate and fall for asks below it", () => {
+    for (const base of [exampleA(), exampleB()]) {
+      const likely = scoreRefinance(base).metrics.likelyApr;
+      let prev = -1;
+      for (let apr = 20; apr >= likely; apr -= 0.25) {
+        const odds = scoreRefinance(withScenario(base, { targetApr: apr })).odds.score;
+        expect(odds).toBeGreaterThanOrEqual(prev); // above it, a lower rate means a lower payment
+        prev = odds;
+      }
+      for (let apr = likely; apr >= 0; apr -= 0.25) {
+        const odds = scoreRefinance(withScenario(base, { targetApr: apr })).odds.score;
+        expect(odds).toBeLessThanOrEqual(prev);
+        prev = odds;
+      }
+    }
+  });
+
+  it("asking far below the likely range makes approval unlikely", () => {
+    for (const base of [exampleA(), exampleB()]) {
+      const r = scoreRefinance(base);
+      const atLikely = scoreRefinance(withScenario(base, { targetApr: r.metrics.likelyApr })).odds.score;
+      const twoUnder = scoreRefinance(withScenario(base, { targetApr: r.metrics.likelyAprRange[0] - 2 }));
+      expect(twoUnder.odds.score).toBeLessThan(atLikely / 2);
+      expect(twoUnder.reasons.some((x) => x.includes("lowers your approval odds"))).toBe(true);
+      const nearZero = scoreRefinance(withScenario(base, { targetApr: 0.1 }));
+      expect(nearZero.odds.band).toBe("red");
+      // The economics still never credit a rate below the likely range.
+      expect(nearZero.metrics.creditedApr).toBe(r.metrics.likelyAprRange[0]);
     }
   });
 

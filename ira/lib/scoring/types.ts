@@ -89,8 +89,10 @@ export interface Scale {
   score: number; // 1–100: the sum of factor points, unless capped
   band: Band; // always bandOf(score), so the dial, number and label agree
   factors: FactorBreakdown[];
-  /** Sum of factor points when a knockout capped the score below it. */
+  /** Sum of factor points when a knockout cap or the rate ask pulled the score below it. */
   uncappedScore?: number;
+  /** Approval odds only: the share of lenders likely to offer the target APR, when under 1. */
+  rateAskMultiplier?: number;
 }
 
 export interface ScoreMetrics {

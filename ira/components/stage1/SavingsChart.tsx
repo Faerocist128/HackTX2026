@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { amortize } from "@/lib/scoring/loanMath";
 import type { FinancialProfile, Scenario, ScoreResult } from "@/lib/scoring/types";
@@ -16,6 +16,9 @@ export function SavingsChart({ profile, scenario, result, compact }: { profile: 
     const n = Math.max(cur.length, nw.length);
     return Array.from({ length: n }, (_, k) => ({ month: k, current: cur[k] ?? 0, next: nw[k] ?? 0 }));
   }, [loan, scenario, result.metrics.payoff, result.metrics.creditedApr]);
+
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches), []);
 
   const curEnd = loan.monthsRemaining;
   const newEnd = result.metrics.monthsToPayoff;
@@ -41,7 +44,7 @@ export function SavingsChart({ profile, scenario, result, compact }: { profile: 
             <YAxis width={48} tickLine={false} axisLine={false} tick={{ fill: "var(--ink2)", fontSize: 13 }} tickFormatter={usdK} />
             <Tooltip formatter={(v, name) => [usd(Number(v)), name === "current" ? "Current loan" : "New loan"]} labelFormatter={(m) => (m === 0 ? "Now" : `Month ${m}`)} contentStyle={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, color: "var(--ink)" }} />
             <Line type="monotone" dataKey="current" stroke="var(--ink2)" strokeWidth={2.5} strokeDasharray="6 5" dot={false} isAnimationActive={false} />
-            <Line type="monotone" dataKey="next" stroke="var(--brand)" strokeWidth={3} dot={false} animationDuration={450} />
+            <Line type="monotone" dataKey="next" stroke="var(--brand)" strokeWidth={3} dot={false} isAnimationActive={!reduceMotion} animationDuration={450} />
           </LineChart>
         </ResponsiveContainer>
       </div>
